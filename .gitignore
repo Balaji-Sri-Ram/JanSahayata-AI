@@ -1,0 +1,40 @@
+# Node dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Production builds
+dist/
+build/
+client/dist/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Uploads directory contents (keep folder structure)
+server/uploads/images/*
+!server/uploads/images/.gitkeep
+server/uploads/videos/*
+!server/uploads/videos/.gitkeep
+server/uploads/audio/*
+!server/uploads/audio/.gitkeep

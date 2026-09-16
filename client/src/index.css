@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 selection:bg-railway-100 selection:text-railway-900;
+  }
+}
+
+/* Glassmorphism and modern UI utilities */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.dark-glass-panel {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+}
+
+/* Glowing accent effects */
+.glow-accent {
+  box-shadow: 0 0 20px -5px rgba(14, 142, 232, 0.3);
+}
+
+.glow-danger {
+  box-shadow: 0 0 20px -5px rgba(239, 68, 68, 0.3);
+}
+
+.glow-success {
+  box-shadow: 0 0 20px -5px rgba(34, 197, 94, 0.3);
+}
+
+/* Voice waveform visualizer pulse */
+@keyframes soundwave {
+  0%, 100% { height: 6px; }
+  50% { height: 28px; }
+}
+
+.animate-wave-1 { animation: soundwave 1s ease-in-out infinite 0.1s; }
+.animate-wave-2 { animation: soundwave 1s ease-in-out infinite 0.25s; }
+.animate-wave-3 { animation: soundwave 1s ease-in-out infinite 0.4s; }
+.animate-wave-4 { animation: soundwave 1s ease-in-out infinite 0.15s; }
+.animate-wave-5 { animation: soundwave 1s ease-in-out infinite 0.3s; }
