@@ -123,25 +123,4 @@ CAPSTONE/
 
 ---
 
-## Quick Start & Verification
 
-### 1. Start MongoDB & Seed Demo Data
-```bash
-# Seed realistic demo complaints
-cd server
-npm run seed
-```
-
-### 2. Start Backend Server
-```bash
-cd server
-npm start
-# Running on http://localhost:5001
-```
-
-### 3. Start Frontend Client
-```bash
-cd client
-npm run dev
-# Running on http://localhost:5173
-```
