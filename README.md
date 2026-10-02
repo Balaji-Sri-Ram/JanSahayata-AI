@@ -74,11 +74,7 @@ A modern, full-stack, AI-powered Grievance Mediation Platform connecting Indian 
 
 ---
 
-## Technology Stack
 
-- **Frontend**: React 18, Tailwind CSS, Vite, React Router v6, Axios, Lucide Icons.
-- **Backend**: Node.js (ES Modules), Express.js, MongoDB, Mongoose, Multer (multipart uploads), Morgan.
-- **Database**: MongoDB (Local instance `mongodb://127.0.0.1:27017/grievance_platform`).
 
 ---
 
