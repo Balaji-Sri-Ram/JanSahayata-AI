@@ -1,6 +1,6 @@
 # RailSewa AI — Citizen–Government Grievance Mediation Platform (MVP)
 
-
+A modern, full-stack, AI-powered Grievance Mediation Platform connecting Indian railway passengers directly with Railway Department operations. Built with a modular architecture ready for Python FastAPI microservice integration (YOLOv8, Whisper, and LLMs).
 
 ---
 
