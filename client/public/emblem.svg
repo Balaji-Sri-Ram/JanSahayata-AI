@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120" width="100" height="120" fill="#0b2545">
+  <g id="lion-capital">
+    <path d="M50 8 C44 8 40 12 40 17 C38 18 36 21 36 24 C36 27 38 29 39 31 C38 34 39 38 41 40 C43 42 45 43 47 44 C46 47 48 50 50 51 C52 50 54 47 53 44 C55 43 57 42 59 40 C61 38 62 34 61 31 C62 29 64 27 64 24 C64 21 62 18 60 17 C60 12 56 8 50 8 Z" />
+    <circle cx="46" cy="22" r="1.5" fill="#FFFFFF" />
+    <circle cx="54" cy="22" r="1.5" fill="#FFFFFF" />
+    <path d="M48 26 L52 26 L50 29 Z" fill="#FFFFFF" />
+    <path d="M47 31 C49 33 51 33 53 31" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" fill="none" />
+    <path d="M37 20 C32 20 28 23 27 27 C25 29 24 33 26 36 C24 38 24 42 26 45 C28 48 31 50 35 52 C37 49 37 46 36 43 C34 41 33 38 34 35 C35 32 37 30 37 28 Z" />
+    <circle cx="29" cy="29" r="1.2" fill="#FFFFFF" />
+    <path d="M63 20 C68 20 72 23 73 27 C75 29 76 33 74 36 C76 38 76 42 74 45 C72 48 69 50 65 52 C63 49 63 46 64 43 C66 41 67 38 66 35 C65 32 63 30 63 28 Z" />
+    <circle cx="71" cy="29" r="1.2" fill="#FFFFFF" />
+    <path d="M45 51 L43 65 L48 65 L49 53 Z" />
+    <path d="M55 51 L57 65 L52 65 L51 53 Z" />
+    <path d="M38 53 L36 65 L41 65 L42 55 Z" />
+    <path d="M62 53 L64 65 L59 65 L58 55 Z" />
+  </g>
+  <g id="abacus">
+    <rect x="20" y="65" width="60" height="3" rx="1.5" fill="#0b2545" />
+    <rect x="18" y="68" width="64" height="18" rx="2" fill="#0b2545" />
+    <circle cx="50" cy="77" r="7" fill="#FFFFFF" />
+    <circle cx="50" cy="77" r="5.5" fill="#000080" />
+    <circle cx="50" cy="77" r="1.8" fill="#FFFFFF" />
+    <circle cx="50" cy="77" r="1" fill="#000080" />
+    <rect x="20" y="86" width="60" height="3" rx="1.5" fill="#0b2545" />
+  </g>
+  <g id="lotus-base">
+    <path d="M26 89 C34 94 42 96 50 96 C58 96 66 94 74 89 C70 98 58 103 50 103 C42 103 30 98 26 89 Z" fill="#0b2545" />
+  </g>
+  <text x="50" y="114" text-anchor="middle" font-size="8" font-weight="700" font-family="'Noto Sans Devanagari', 'Mangal', sans-serif" fill="#0b2545">सत्यमेव जयते</text>
+</svg>
+

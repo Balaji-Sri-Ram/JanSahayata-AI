@@ -112,13 +112,13 @@ export default function RailwayComplaints() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-2xs">
+        <div className="flex items-center gap-2 text-xs text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-sm">
           <span>Active Filtered Queue: <strong className="text-slate-900">{complaints.length}</strong> complaints</span>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
         
         {/* Search input */}
         <form onSubmit={handleSearchSubmit} className="flex gap-2">
@@ -128,14 +128,14 @@ export default function RailwayComplaints() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search complaint ID / keyword / station / location..."
-              className="w-full rounded-xl border border-slate-300 pl-9 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-railway-500 focus:ring-2 focus:ring-railway-100 outline-hidden"
+              className="w-full rounded-xl border border-slate-300 pl-9 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-railway-500 focus:ring-2 focus:ring-railway-100 outline-none"
             />
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           </div>
 
           <button
             type="submit"
-            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-colors shadow-2xs cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer"
           >
             Search
           </button>
@@ -152,7 +152,7 @@ export default function RailwayComplaints() {
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 bg-white focus:border-railway-500 outline-hidden"
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 bg-white focus:border-railway-500 outline-none"
             >
               {STATUS_LIST.map((st) => (
                 <option key={st} value={st}>
@@ -170,7 +170,7 @@ export default function RailwayComplaints() {
             <select
               value={urgency}
               onChange={(e) => setUrgency(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 bg-white focus:border-railway-500 outline-hidden"
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 bg-white focus:border-railway-500 outline-none"
             >
               {URGENCY_LIST.map((ug) => (
                 <option key={ug} value={ug}>
@@ -188,7 +188,7 @@ export default function RailwayComplaints() {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 bg-white focus:border-railway-500 outline-hidden truncate"
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 bg-white focus:border-railway-500 outline-none truncate"
             >
               {CATEGORY_LIST.map((cat) => (
                 <option key={cat} value={cat}>
@@ -225,7 +225,7 @@ export default function RailwayComplaints() {
           {error}
         </div>
       ) : complaints.length === 0 ? (
-        <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-xs">
+        <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-sm">
           <Inbox className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <h3 className="text-sm font-semibold text-slate-800 mb-1">No Railway Complaints Match Filter</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
@@ -239,7 +239,7 @@ export default function RailwayComplaints() {
           </button>
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
@@ -312,7 +312,7 @@ export default function RailwayComplaints() {
                       <td className="py-3 px-4 text-right whitespace-nowrap">
                         <Link
                           to={`/railway-dashboard/complaints/${item.complaintId || item._id}`}
-                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-2xs transition-colors"
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm transition-colors"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           <span>View</span>

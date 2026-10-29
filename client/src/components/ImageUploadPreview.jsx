@@ -109,7 +109,7 @@ export default function ImageUploadPreview({
               Click to select photos or drag & drop
             </span>
             <span className="text-[10px] text-slate-400 mt-0.5">
-              YOLO AI auto-detects potholes, damage, garbage & fixtures
+              Automated image audit enabled for potholes, structural damage & public fixtures
             </span>
             <input
               type="file"
@@ -132,8 +132,8 @@ export default function ImageUploadPreview({
                   />
                   {showYoloPreview && idx === 0 && (
                     <div className="absolute inset-0 border-2 border-emerald-500 bg-emerald-500/10 pointer-events-none flex items-start justify-start p-1">
-                      <span className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
-                        YOLO: {mockAiLabel} ({Math.round(mockConfidence * 100)}%)
+                      <span className="bg-emerald-700 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
+                        Site Audit: {mockAiLabel} ({Math.round(mockConfidence * 100)}%)
                       </span>
                     </div>
                   )}

@@ -8,6 +8,9 @@ import { connectDB } from './config/db.js';
 import complaintRoutes from './routes/complaintRoutes.js';
 import railwayRoutes from './routes/railwayRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
+import authRoutes from './routes/authRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
+import staffRoutes from './routes/staffRoutes.js';
 
 dotenv.config();
 
@@ -18,11 +21,32 @@ const __dirname = path.dirname(__filename);
 connectDB();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Middleware
+// Middleware
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'http://127.0.0.1:5175'
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || '*',
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (
+      allowedOrigins.includes(origin) ||
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('http://127.0.0.1:')
+    ) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 app.use(morgan('dev'));
@@ -33,6 +57,9 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/staff', staffRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/railway', railwayRoutes);
 app.use('/api/ai', aiRoutes);
@@ -41,7 +68,8 @@ app.use('/api/ai', aiRoutes);
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'online',
-    service: 'AI Grievance Mediation Platform Backend',
+    service: 'JanSahayata Grievance Intelligence Platform Backend',
+    version: '2.0.0',
     timestamp: new Date().toISOString()
   });
 });
@@ -61,6 +89,6 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`[Server] Railway Grievance Server running on http://localhost:${PORT}`);
-  console.log(`[Server] Client Origin allowed: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
+  console.log(`[JanSahayata Server] Platform running on http://localhost:${PORT}`);
+  console.log(`[JanSahayata Server] Client Origin: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
 });
