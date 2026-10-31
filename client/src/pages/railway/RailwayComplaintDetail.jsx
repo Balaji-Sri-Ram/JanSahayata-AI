@@ -203,7 +203,7 @@ export default function RailwayComplaintDetail() {
         <div className="flex items-center gap-3">
           <Link
             to="/railway-dashboard/complaints"
-            className="w-9 h-9 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-700 transition-colors shadow-2xs"
+            className="w-9 h-9 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-700 transition-colors shadow-sm"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
@@ -280,7 +280,7 @@ export default function RailwayComplaintDetail() {
                 setStatusUpdate('In Progress');
                 setProgressMessage('Reopened complaint investigation based on citizen dispute feedback. Re-deploying field repair team.');
               }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs transition-colors shadow-sm"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Reopen & Restart Investigation</span>
@@ -296,7 +296,7 @@ export default function RailwayComplaintDetail() {
         <div className="lg:col-span-2 space-y-6">
           
           {/* Citizen Report Card */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                 <FileText className="w-4 h-4 text-railway-600" />
@@ -321,8 +321,8 @@ export default function RailwayComplaintDetail() {
               </div>
 
               <div className="p-3.5 bg-sky-50/60 border border-sky-200 rounded-xl">
-                <span className="text-[11px] font-semibold text-sky-800 flex items-center gap-1 mb-1">
-                  <Sparkles className="w-3 h-3 text-amber-500" /> AI-Generated Problem Statement
+                <span className="text-[11px] font-semibold text-[#0b2545] flex items-center gap-1 mb-1">
+                  <Sparkles className="w-3 h-3 text-[#e86100]" /> Standardized Problem Statement
                 </span>
                 <p className="text-slate-800 leading-relaxed">{complaint.aiGeneratedDescription || complaint.description}</p>
               </div>
@@ -339,25 +339,25 @@ export default function RailwayComplaintDetail() {
             </div>
           </div>
 
-          {/* AI YOLO Vision & Triage Card */}
-          <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-md border border-slate-800 space-y-4">
+          {/* Automated Inspection & Technical Triaging Analysis */}
+          <div className="bg-[#0b2545] text-white rounded-lg p-6 shadow-md border border-slate-700 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-white/10">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center font-bold">
+                <div className="w-7 h-7 rounded bg-amber-400 text-slate-950 flex items-center justify-center font-bold">
                   <Cpu className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold font-['Outfit'] text-white">
-                    AI Computer Vision & Automated Triaging Analysis
+                  <h3 className="text-sm font-bold text-white">
+                    Automated Inspection & Technical Triaging Parameters
                   </h3>
-                  <p className="text-[11px] text-slate-400">
-                    FastAPI / YOLOv8 Mock Inference Pipeline
+                  <p className="text-[11px] text-slate-300">
+                    Computer Vision & Incident Verification Subsystem
                   </p>
                 </div>
               </div>
 
               <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded">
-                Model: YOLOv8-Civic-v1
+                Inspection Engine v2.4
               </span>
             </div>
 
@@ -424,7 +424,7 @@ export default function RailwayComplaintDetail() {
           {((complaint.attachments?.images && complaint.attachments.images.length > 0) ||
             (complaint.attachments?.videos && complaint.attachments.videos.length > 0) ||
             (complaint.attachments?.audio && complaint.attachments.audio.length > 0)) && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-3">
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-3">
               <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                 Submitted Media Files
               </h3>
@@ -478,7 +478,7 @@ export default function RailwayComplaintDetail() {
           )}
 
           {/* Timeline Audit Log */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
             <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
               <Clock className="w-4 h-4 text-railway-600" />
               Progress Log & Investigation History
@@ -492,7 +492,7 @@ export default function RailwayComplaintDetail() {
         <div className="space-y-6">
           
           {/* Action Card: Update Status & Log Progress */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4 sticky top-20">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 sticky top-20">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
               <ShieldCheck className="w-5 h-5 text-railway-600" />
               <h3 className="text-sm font-bold text-slate-900 font-['Outfit']">
@@ -509,7 +509,7 @@ export default function RailwayComplaintDetail() {
                 <select
                   value={statusUpdate}
                   onChange={(e) => setStatusUpdate(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800 bg-white focus:border-railway-500 outline-hidden"
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800 bg-white focus:border-railway-500 outline-none"
                 >
                   <option value="Under Review">Under Review</option>
                   <option value="Accepted">Accepted</option>
@@ -531,7 +531,7 @@ export default function RailwayComplaintDetail() {
                   value={progressMessage}
                   onChange={(e) => setProgressMessage(e.target.value)}
                   placeholder='e.g., "Civil maintenance team deployed with patch repair materials on platform 2."'
-                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-railway-500 outline-hidden"
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-railway-500 outline-none"
                   required
                 />
               </div>
@@ -597,7 +597,7 @@ export default function RailwayComplaintDetail() {
                   value={resolutionDesc}
                   onChange={(e) => setResolutionDesc(e.target.value)}
                   placeholder='e.g., "The damaged pavement near platform 2 has been leveled with hot asphalt and cured."'
-                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-800 focus:border-emerald-500 outline-hidden"
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-800 focus:border-emerald-500 outline-none"
                   required
                 />
               </div>
@@ -669,7 +669,7 @@ export default function RailwayComplaintDetail() {
                   type="text"
                   value={escalatedTo}
                   onChange={(e) => setEscalatedTo(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-800 focus:border-purple-500 outline-hidden"
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-800 focus:border-purple-500 outline-none"
                   required
                 />
               </div>
@@ -682,7 +682,7 @@ export default function RailwayComplaintDetail() {
                   rows={3}
                   value={escalationReason}
                   onChange={(e) => setEscalationReason(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-800 focus:border-purple-500 outline-hidden"
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-800 focus:border-purple-500 outline-none"
                   required
                 />
               </div>

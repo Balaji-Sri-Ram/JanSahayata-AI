@@ -24,17 +24,42 @@ import UrgencyBadge from '../../components/UrgencyBadge';
 export default function RailwayDashboard() {
   const [statsData, setStatsData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshCountdown, setRefreshCountdown] = useState(0);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchStats();
   }, []);
 
-  const fetchStats = async () => {
+  // Real-time live polling (every 8s)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      railwayApi.getDashboardStats().then(res => {
+        if (res.data?.success) setStatsData(res.data.data);
+      }).catch(() => {});
+    }, 8000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const fetchStats = async (isManual = false) => {
     try {
-      setLoading(true);
+      if (isManual) {
+        setIsRefreshing(true);
+        setRefreshCountdown(3);
+        const timer = setInterval(() => {
+          setRefreshCountdown(prev => (prev > 1 ? prev - 1 : 1));
+        }, 1000);
+        setTimeout(() => clearInterval(timer), 3200);
+      } else {
+        setLoading(true);
+      }
       setError(null);
-      const res = await railwayApi.getDashboardStats();
+      const [res] = await Promise.all([
+        railwayApi.getDashboardStats(),
+        isManual ? new Promise(r => setTimeout(r, 3000)) : Promise.resolve()
+      ]);
       if (res.data?.success) {
         setStatsData(res.data.data);
       }
@@ -43,6 +68,8 @@ export default function RailwayDashboard() {
       setError('Could not connect to Railway backend API.');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
+      setRefreshCountdown(0);
     }
   };
 
@@ -65,7 +92,7 @@ export default function RailwayDashboard() {
       <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-7 shadow-lg border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-400 text-slate-950 shadow-xs">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-400 text-slate-950 shadow-sm">
               <ShieldCheck className="w-3.5 h-3.5" /> Railway Department Operations
             </span>
             <span className="text-xs text-slate-400">
@@ -77,18 +104,18 @@ export default function RailwayDashboard() {
             Operational Grievance Dashboard
           </h1>
           <p className="text-xs text-slate-400 mt-1 max-w-xl">
-            Logged in as <strong className="text-white">Railway Officer (Station Superintendent)</strong>. Real-time complaint queues and automated AI triaging feeds.
+            Logged in as <strong className="text-white">Railway Officer (Station Superintendent)</strong>. Official complaint queues and department grievance feeds.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <button
-            onClick={fetchStats}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/20 transition-colors shadow-2xs"
+            onClick={() => fetchStats(true)}
+            disabled={loading || isRefreshing}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/20 transition-colors shadow-sm"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Sync Live Data</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing || loading ? 'animate-spin text-amber-300' : ''}`} />
+            <span>{isRefreshing ? `Syncing (${refreshCountdown || 3}s)...` : 'Sync Live Data'}</span>
           </button>
 
           <Link
@@ -134,7 +161,7 @@ export default function RailwayDashboard() {
         {/* Total */}
         <Link
           to="/railway-dashboard/complaints"
-          className="bg-white border border-slate-200 hover:border-slate-400 rounded-xl p-4 shadow-2xs hover:shadow-sm transition-all"
+          className="bg-white border border-slate-200 hover:border-slate-400 rounded-xl p-4 shadow-sm hover:shadow-sm transition-all"
         >
           <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
             Total
@@ -148,7 +175,7 @@ export default function RailwayDashboard() {
         {/* New / Submitted */}
         <Link
           to="/railway-dashboard/complaints?status=Submitted"
-          className="bg-white border border-blue-200 hover:border-blue-400 rounded-xl p-4 shadow-2xs hover:shadow-sm transition-all"
+          className="bg-white border border-blue-200 hover:border-blue-400 rounded-xl p-4 shadow-sm hover:shadow-sm transition-all"
         >
           <span className="text-[11px] font-semibold text-blue-600 uppercase tracking-wider block">
             New / Submitted
@@ -162,7 +189,7 @@ export default function RailwayDashboard() {
         {/* Under Review */}
         <Link
           to="/railway-dashboard/complaints?status=Under%20Review"
-          className="bg-white border border-amber-200 hover:border-amber-400 rounded-xl p-4 shadow-2xs hover:shadow-sm transition-all"
+          className="bg-white border border-amber-200 hover:border-amber-400 rounded-xl p-4 shadow-sm hover:shadow-sm transition-all"
         >
           <span className="text-[11px] font-semibold text-amber-600 uppercase tracking-wider block">
             Under Review
@@ -176,7 +203,7 @@ export default function RailwayDashboard() {
         {/* In Progress */}
         <Link
           to="/railway-dashboard/complaints?status=In%20Progress"
-          className="bg-white border border-sky-200 hover:border-sky-400 rounded-xl p-4 shadow-2xs hover:shadow-sm transition-all"
+          className="bg-white border border-sky-200 hover:border-sky-400 rounded-xl p-4 shadow-sm hover:shadow-sm transition-all"
         >
           <span className="text-[11px] font-semibold text-sky-600 uppercase tracking-wider block">
             In Progress
@@ -190,7 +217,7 @@ export default function RailwayDashboard() {
         {/* Resolved */}
         <Link
           to="/railway-dashboard/complaints?status=Resolved"
-          className="bg-white border border-emerald-200 hover:border-emerald-400 rounded-xl p-4 shadow-2xs hover:shadow-sm transition-all"
+          className="bg-white border border-emerald-200 hover:border-emerald-400 rounded-xl p-4 shadow-sm hover:shadow-sm transition-all"
         >
           <span className="text-[11px] font-semibold text-emerald-600 uppercase tracking-wider block">
             Resolved
@@ -204,7 +231,7 @@ export default function RailwayDashboard() {
         {/* Disputed */}
         <Link
           to="/railway-dashboard/complaints?status=Disputed"
-          className="bg-white border border-rose-200 hover:border-rose-400 rounded-xl p-4 shadow-2xs hover:shadow-sm transition-all"
+          className="bg-white border border-rose-200 hover:border-rose-400 rounded-xl p-4 shadow-sm hover:shadow-sm transition-all"
         >
           <span className="text-[11px] font-semibold text-rose-600 uppercase tracking-wider block">
             Disputed
@@ -218,7 +245,7 @@ export default function RailwayDashboard() {
         {/* Escalated */}
         <Link
           to="/railway-dashboard/complaints?status=Escalated"
-          className="bg-white border border-purple-200 hover:border-purple-400 rounded-xl p-4 shadow-2xs hover:shadow-sm transition-all"
+          className="bg-white border border-purple-200 hover:border-purple-400 rounded-xl p-4 shadow-sm hover:shadow-sm transition-all"
         >
           <span className="text-[11px] font-semibold text-purple-600 uppercase tracking-wider block">
             Escalated
@@ -235,7 +262,7 @@ export default function RailwayDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Category Breakdown */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-slate-900 font-['Outfit'] uppercase tracking-wider flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-railway-600" />
@@ -266,7 +293,7 @@ export default function RailwayDashboard() {
         </div>
 
         {/* Recent Urgent Action Queue */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
+        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-bold text-slate-900 font-['Outfit'] uppercase tracking-wider flex items-center gap-2">

@@ -38,3 +38,7 @@ server/uploads/videos/*
 !server/uploads/videos/.gitkeep
 server/uploads/audio/*
 !server/uploads/audio/.gitkeep
+
+# Datasets (large media & annotations)
+Datasets/
+

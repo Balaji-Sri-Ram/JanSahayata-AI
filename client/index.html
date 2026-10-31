@@ -1,17 +1,116 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="bg-[#0b2545]">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230270c6'><path d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/></svg>" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="AI-Powered Citizen-Government Grievance Mediation Platform - Seamless complaint filing, AI auto-triaging, and Railway Department resolution workflow." />
-    <title>RailSewa AI | Citizen–Government Grievance Mediation Platform</title>
-    <!-- Google Fonts Inter -->
+    <link rel="icon" type="image/jpeg" href="/emblem.jpg" />
+    <link rel="apple-touch-icon" href="/emblem.jpg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta name="description" content="JanSahayata - Centralized Public Grievance Redress and Monitoring System (CPGRAMS), Government of India. Official single-window platform for lodging and monitoring public grievances." />
+    <meta name="keywords" content="Government of India, Grievance Portal, CPGRAMS, JanSahayata, Public Services, Citizen Charter, Redressal" />
+    <meta name="theme-color" content="#0b2545" />
+    <title>JanSahayata | Centralized Public Grievance Redress & Monitoring System | Government of India</title>
+    <!-- Google Fonts: Inter & Noto Sans Devanagari -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Google Translate Element for 22+ Indian Languages -->
+    <style>
+      body > .skiptranslate,
+      .goog-te-banner-frame,
+      .goog-te-banner-frame.skiptranslate,
+      iframe.goog-te-banner-frame,
+      iframe.VIpgJd-ZVi9od-ORHb-Oxf5Fd,
+      .VIpgJd-ZVi9od-ORHb-Oxf5Fd,
+      .VIpgJd-ZVi9od-aZ2wEe-wOHMyf,
+      .VIpgJd-y6EkJd,
+      #goog-gt-tt,
+      .goog-te-balloon-frame,
+      #google_translate_element,
+      div[id*=":1.container"],
+      div[id*=":2.container"],
+      iframe[id*=":1.container"],
+      iframe[id*=":2.container"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0px !important;
+        min-height: 0px !important;
+        max-height: 0px !important;
+        width: 0px !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        position: absolute !important;
+        top: -9999px !important;
+        left: -9999px !important;
+        z-index: -9999 !important;
+      }
+      body {
+        top: 0px !important;
+        position: static !important;
+        margin-top: 0px !important;
+        padding-top: 0px !important;
+      }
+      html {
+        top: 0px !important;
+        margin-top: 0px !important;
+        padding-top: 0px !important;
+      }
+      font.skiptranslate,
+      span.skiptranslate {
+        display: inline !important;
+      }
+    </style>
+    <script type="text/javascript">
+      window.googleTranslateElementInit = function() {
+        if (window.google && window.google.translate) {
+          new window.google.translate.TranslateElement({
+            pageLanguage: 'en',
+            autoDisplay: false
+          }, 'google_translate_element');
+        }
+      };
+
+      // Suppress any Google Translate top banner or body shifting
+      (function() {
+        function killBanner() {
+          if (document.body) {
+            if (document.body.style.top && document.body.style.top !== '0px') {
+              document.body.style.top = '0px';
+            }
+            if (document.body.style.position === 'relative') {
+              document.body.style.position = 'static';
+            }
+          }
+          var banners = document.querySelectorAll(
+            'body > .skiptranslate, .goog-te-banner-frame, iframe.VIpgJd-ZVi9od-ORHb-Oxf5Fd, .VIpgJd-ZVi9od-ORHb-Oxf5Fd, [id*=":1.container"], [id*=":2.container"]'
+          );
+          for (var i = 0; i < banners.length; i++) {
+            banners[i].style.setProperty('display', 'none', 'important');
+            banners[i].style.setProperty('visibility', 'hidden', 'important');
+            banners[i].style.setProperty('height', '0px', 'important');
+            banners[i].style.setProperty('pointer-events', 'none', 'important');
+            banners[i].style.setProperty('position', 'absolute', 'important');
+            banners[i].style.setProperty('top', '-9999px', 'important');
+          }
+        }
+
+        if (window.MutationObserver) {
+          var observer = new MutationObserver(function() {
+            killBanner();
+          });
+          document.addEventListener('DOMContentLoaded', function() {
+            killBanner();
+            if (document.body) {
+              observer.observe(document.body, { attributes: true, childList: true });
+            }
+          });
+        }
+      })();
+    </script>
+    <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async defer></script>
   </head>
-  <body class="bg-slate-50 text-slate-900 antialiased font-sans min-h-screen">
+  <body class="bg-slate-100 text-slate-900 antialiased font-sans min-h-screen">
+    <!-- Hidden Google Translate Element Anchor -->
+    <div id="google_translate_element" style="display:none; position:absolute; top:-9999px;"></div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

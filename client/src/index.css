@@ -1,45 +1,101 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  html {
+    font-family: 'Inter', 'Noto Sans Devanagari', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #0f172a;
+    background-color: #0b2545; /* Dark navy base prevents any white flash/gap above header during intense or elastic scrolling */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: clip;
+    max-width: 100vw;
+  }
+
   body {
-    @apply bg-slate-50 text-slate-900 selection:bg-railway-100 selection:text-railway-900;
+    @apply bg-slate-100 text-slate-900 min-h-screen selection:bg-blue-100 selection:text-blue-900 text-sm m-0 p-0;
+    overflow-x: clip;
+    max-width: 100vw;
+  }
+
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-slate-900 font-semibold tracking-tight;
   }
 }
 
-/* Glassmorphism and modern UI utilities */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(226, 232, 240, 0.8);
+/* Modern Government Design System Utilities */
+@layer components {
+  /* Standard Civic Cards */
+  .gov-card {
+    @apply bg-white rounded-lg border border-slate-200/90 shadow-sm hover:border-slate-300 transition-colors;
+  }
+
+  .gov-card-interactive {
+    @apply bg-white rounded-lg border border-slate-200/90 shadow-sm hover:border-blue-600 hover:shadow-md transition-all;
+  }
+
+  /* Form Inputs - Standard GIGW Gov portal style */
+  .gov-input {
+    @apply w-full rounded-md border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500 transition-all;
+  }
+
+  .gov-select {
+    @apply w-full rounded-md border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all;
+  }
+
+  /* Standard Action Buttons - Authoritative Government Style */
+  .gov-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-[#0b2545] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#163b6b] focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 active:bg-[#07172b] disabled:opacity-50 disabled:pointer-events-none transition-all;
+  }
+
+  .gov-btn-saffron {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-[#e86100] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#c2410c] focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 active:bg-[#9a3412] disabled:opacity-50 disabled:pointer-events-none transition-all;
+  }
+
+  .gov-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 hover:text-slate-900 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:opacity-50 disabled:pointer-events-none transition-all;
+  }
+
+  .gov-btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-400 disabled:opacity-50 disabled:pointer-events-none transition-all;
+  }
+
+  .gov-btn-success {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-[#138808] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#166534] focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50 disabled:pointer-events-none transition-all;
+  }
+
+  /* Section Header */
+  .gov-section-header {
+    @apply border-b border-slate-200 pb-3 mb-5;
+  }
+
+  /* Government Table */
+  .gov-table {
+    @apply w-full divide-y divide-slate-200 text-left text-xs;
+  }
+
+  .gov-table th {
+    @apply bg-slate-50 px-3.5 py-2.5 text-[11px] font-bold text-slate-700 uppercase tracking-wider;
+  }
+
+  .gov-table td {
+    @apply px-3.5 py-2.5 text-slate-700 border-b border-slate-100 text-xs;
+  }
 }
 
-.dark-glass-panel {
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(51, 65, 85, 0.6);
-}
-
-/* Glowing accent effects */
-.glow-accent {
-  box-shadow: 0 0 20px -5px rgba(14, 142, 232, 0.3);
-}
-
-.glow-danger {
-  box-shadow: 0 0 20px -5px rgba(239, 68, 68, 0.3);
-}
-
-.glow-success {
-  box-shadow: 0 0 20px -5px rgba(34, 197, 94, 0.3);
-}
-
-/* Voice waveform visualizer pulse */
+/* Audio visualizer waveform */
 @keyframes soundwave {
-  0%, 100% { height: 6px; }
-  50% { height: 28px; }
+  0%, 100% { height: 4px; }
+  50% { height: 22px; }
 }
 
 .animate-wave-1 { animation: soundwave 1s ease-in-out infinite 0.1s; }
@@ -47,3 +103,93 @@
 .animate-wave-3 { animation: soundwave 1s ease-in-out infinite 0.4s; }
 .animate-wave-4 { animation: soundwave 1s ease-in-out infinite 0.15s; }
 .animate-wave-5 { animation: soundwave 1s ease-in-out infinite 0.3s; }
+
+/* Ticker marquee animation */
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-ticker {
+  display: inline-block;
+  white-space: nowrap;
+  animation: ticker 35s linear infinite;
+}
+
+.animate-ticker:hover {
+  animation-play-state: paused;
+}
+
+/* Hide Google Translate toolbar & banner frame for clean authentic Gov Portal UI */
+body > .skiptranslate,
+.goog-te-banner-frame,
+.goog-te-banner-frame.skiptranslate,
+iframe.goog-te-banner-frame,
+iframe.VIpgJd-ZVi9od-ORHb-Oxf5Fd,
+.VIpgJd-ZVi9od-ORHb-Oxf5Fd,
+.VIpgJd-ZVi9od-aZ2wEe-wOHMyf,
+.VIpgJd-y6EkJd,
+#goog-gt-tt,
+.goog-te-balloon-frame,
+#google_translate_element,
+div[id*=":1.container"],
+div[id*=":2.container"],
+iframe[id*=":1.container"],
+iframe[id*=":2.container"] {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0px !important;
+  min-height: 0px !important;
+  max-height: 0px !important;
+  width: 0px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  top: -9999px !important;
+  left: -9999px !important;
+  z-index: -9999 !important;
+}
+
+body {
+  top: 0px !important;
+  position: static !important;
+  margin-top: 0px !important;
+  padding-top: 0px !important;
+}
+
+html {
+  top: 0px !important;
+  margin-top: 0px !important;
+  padding-top: 0px !important;
+}
+
+font.skiptranslate,
+span.skiptranslate {
+  display: inline !important;
+}
+
+/* Clean Government Emblem Rendering (No heavy outer box/frame) */
+.emblem-image-enhanced {
+  filter: brightness(1.18) contrast(1.15) saturate(1.1) drop-shadow(0 2px 4px rgba(0,0,0,0.25));
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.emblem-image-enhanced:hover {
+  filter: brightness(1.25) contrast(1.2) saturate(1.15) drop-shadow(0 4px 10px rgba(11,37,69,0.35));
+  transform: scale(1.05);
+}
+
+/* Modern Toast Notification Animation */
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+
+

@@ -1,6 +1,8 @@
 import { Complaint } from '../models/Complaint.js';
 import { aiService } from '../services/ai/aiService.js';
-import { getDepartmentById } from '../config/departments.js';
+import { getDepartmentById, DEPARTMENTS } from '../config/departments.js';
+import { AuditLog } from '../models/AuditLog.js';
+import { sendComplaintConfirmationEmail } from '../services/emailService.js';
 
 // Helper to format relative upload URLs
 const getFileUrl = (req, file) => {
@@ -23,13 +25,17 @@ export const createComplaint = async (req, res) => {
     const {
       description,
       aiGeneratedDescription,
+      generatedProblemStatement,
       category,
       departmentId = 'railway',
       urgency,
       locationAddress,
       latitude,
       longitude,
-      citizenId = 'CITIZEN-DEMO-001'
+      citizenId,
+      citizenName,
+      citizenEmail,
+      citizenPhone
     } = req.body;
 
     if (!description || !category) {
@@ -40,7 +46,8 @@ export const createComplaint = async (req, res) => {
     }
 
     const dept = getDepartmentById(departmentId);
-    const complaintId = await Complaint.generateComplaintId(dept.code);
+    // Generate dynamic complaint ID in JNS-YYYY-XXXXXX format
+    const complaintId = await Complaint.generateComplaintId('JNS');
 
     // Process file attachments
     const images = req.files?.images?.map(f => getFileUrl(req, f)) || [];
@@ -56,17 +63,28 @@ export const createComplaint = async (req, res) => {
       audioFilename: audio[0] || null
     });
 
-    const finalAiDescription = aiGeneratedDescription && aiGeneratedDescription.trim() !== ''
-      ? aiGeneratedDescription
+    const finalProblemStatement = (generatedProblemStatement && generatedProblemStatement.trim() !== '')
+      ? generatedProblemStatement.trim()
+      : (aiGeneratedDescription && aiGeneratedDescription.trim() !== '')
+      ? aiGeneratedDescription.trim()
       : aiPipelineResult.aiGeneratedDescription;
 
     const finalUrgency = urgency || aiPipelineResult.suggestedUrgency || 'Medium';
 
+    const finalCitizenId = req.user ? String(req.user._id) : (citizenId || 'CITIZEN-GUEST');
+    const finalCitizenDetails = {
+      name: req.user?.name || citizenName || 'Citizen',
+      email: req.user?.email || citizenEmail || '',
+      phone: req.user?.phone || citizenPhone || ''
+    };
+
     const newComplaint = new Complaint({
       complaintId,
-      citizenId,
-      description,
-      aiGeneratedDescription: finalAiDescription,
+      citizenId: finalCitizenId,
+      citizenDetails: finalCitizenDetails,
+      description: description.trim(),
+      generatedProblemStatement: finalProblemStatement,
+      aiGeneratedDescription: finalProblemStatement,
       category,
       department: {
         id: dept.id,
@@ -75,7 +93,7 @@ export const createComplaint = async (req, res) => {
       },
       urgency: finalUrgency,
       location: {
-        address: locationAddress || 'Railway Station Premises',
+        address: locationAddress || 'Civic Premises',
         latitude: latitude ? parseFloat(latitude) : null,
         longitude: longitude ? parseFloat(longitude) : null
       },
@@ -84,16 +102,17 @@ export const createComplaint = async (req, res) => {
         videos,
         audio
       },
+      evidence: images.map(url => ({ url, type: 'image', caption: 'Citizen Evidence' })),
       aiAnalysis: aiPipelineResult.aiAnalysis,
       status: 'Submitted',
       progressUpdates: [
         {
           status: 'Submitted',
-          message: 'Complaint submitted successfully by citizen and registered in Railway Grievance System.',
+          message: `Complaint registered in JanSahayata platform and dispatched to ${dept.name}.`,
           officer: {
-            name: 'System Dispatcher',
+            name: 'JanSahayata Ingestion Service',
             department: dept.name,
-            role: 'Automated Ingestion Cell'
+            role: 'Automated Dispatch'
           },
           timestamp: new Date()
         }
@@ -101,6 +120,30 @@ export const createComplaint = async (req, res) => {
     });
 
     const savedComplaint = await newComplaint.save();
+
+    await AuditLog.logAction({
+      action: 'COMPLAINT_SUBMITTED',
+      performedBy: req.user || { name: finalCitizenDetails.name, email: finalCitizenDetails.email, role: 'CITIZEN' },
+      targetType: 'Complaint',
+      targetId: savedComplaint.complaintId,
+      details: `Complaint submitted: ${savedComplaint.complaintId} in ${dept.name} (${category})`,
+      ipAddress: req.ip
+    });
+
+    // If citizen email is provided, send official tracking confirmation email asynchronously
+    if (finalCitizenDetails.email && finalCitizenDetails.email.includes('@')) {
+      sendComplaintConfirmationEmail({
+        complaintId: savedComplaint.complaintId,
+        recipientEmail: finalCitizenDetails.email,
+        recipientName: finalCitizenDetails.name || 'Citizen',
+        departmentName: dept.name,
+        category,
+        description,
+        address: locationAddress || 'Civic Premises',
+        urgency: finalUrgency,
+        portalUrl: process.env.CLIENT_URL || 'http://localhost:5173'
+      }).catch(err => console.error('[sendComplaintConfirmationEmail async error]', err.message));
+    }
 
     return res.status(201).json({
       success: true,
@@ -120,8 +163,28 @@ export const createComplaint = async (req, res) => {
 export const getComplaintsByCitizen = async (req, res) => {
   try {
     const { citizenId } = req.params;
-    const complaints = await Complaint.find({ citizenId: citizenId || 'CITIZEN-DEMO-001' })
-      .sort({ createdAt: -1 });
+    const targetCitizenId = (citizenId && citizenId !== 'current')
+      ? citizenId
+      : (req.user ? String(req.user._id) : null);
+
+    if (!targetCitizenId) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: []
+      });
+    }
+
+    // Only return complaints actually submitted by this specific citizen account
+    // or matching their verified email address. No demo/fake fallback complaints!
+    const queryConditions = [{ citizenId: targetCitizenId }];
+    if (req.user?.email) {
+      queryConditions.push({ 'citizenDetails.email': req.user.email.toLowerCase() });
+    }
+
+    const complaints = await Complaint.find({
+      $or: queryConditions
+    }).sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
@@ -141,7 +204,7 @@ export const getComplaintsByCitizen = async (req, res) => {
 export const getComplaintById = async (req, res) => {
   try {
     const { id } = req.params;
-    const query = id.startsWith('RLY-') || id.includes('-')
+    const query = id.startsWith('JNS-') || id.startsWith('RLY-') || id.includes('-')
       ? { complaintId: id }
       : { _id: id };
 
@@ -173,7 +236,7 @@ export const verifyResolution = async (req, res) => {
     const { id } = req.params;
     const { feedback = 'Resolved satisfactorily' } = req.body;
 
-    const query = id.startsWith('RLY-') || id.includes('-')
+    const query = id.startsWith('JNS-') || id.startsWith('RLY-') || id.includes('-')
       ? { complaintId: id }
       : { _id: id };
 
@@ -186,25 +249,34 @@ export const verifyResolution = async (req, res) => {
     complaint.verification = {
       isVerified: true,
       verifiedAt: new Date(),
-      feedback
+      feedback: feedback.trim()
     };
 
     complaint.progressUpdates.push({
       status: 'Closed',
-      message: `Resolution verified and accepted by citizen. Feedback: "${feedback}"`,
+      message: `Citizen verified and accepted resolution. Feedback: "${feedback.trim()}"`,
       officer: {
-        name: 'Citizen Verification',
+        name: req.user?.name || complaint.citizenDetails?.name || 'Citizen',
         department: complaint.department.name,
-        role: 'Citizen Portal'
+        role: 'Citizen Verification'
       },
       timestamp: new Date()
     });
 
     await complaint.save();
 
+    await AuditLog.logAction({
+      action: 'RESOLUTION_CONFIRMED',
+      performedBy: req.user || { name: 'Citizen', role: 'CITIZEN' },
+      targetType: 'Complaint',
+      targetId: complaint.complaintId,
+      details: `Citizen confirmed resolution for ${complaint.complaintId}: ${feedback}`,
+      ipAddress: req.ip
+    });
+
     return res.status(200).json({
       success: true,
-      message: 'Resolution confirmed and complaint marked as Closed',
+      message: 'Resolution confirmed and complaint marked as Closed.',
       data: complaint
     });
   } catch (error) {
@@ -225,7 +297,7 @@ export const disputeResolution = async (req, res) => {
 
     const disputeMedia = req.files?.disputeMedia?.map(f => getFileUrl(req, f)) || [];
 
-    const query = id.startsWith('RLY-') || id.includes('-')
+    const query = id.startsWith('JNS-') || id.startsWith('RLY-') || id.includes('-')
       ? { complaintId: id }
       : { _id: id };
 
@@ -244,11 +316,11 @@ export const disputeResolution = async (req, res) => {
 
     complaint.progressUpdates.push({
       status: 'Disputed',
-      message: `Citizen rejected resolution: "${reason.trim()}". Reopened for Railway Officer investigation.`,
+      message: `Citizen rejected resolution: "${reason.trim()}". Reopened for ${complaint.department.name} investigation.`,
       officer: {
-        name: 'Citizen Escalation',
+        name: req.user?.name || complaint.citizenDetails?.name || 'Citizen',
         department: complaint.department.name,
-        role: 'Dispute Mediation'
+        role: 'Citizen Dispute Registration'
       },
       media: disputeMedia,
       timestamp: new Date()
@@ -256,9 +328,18 @@ export const disputeResolution = async (req, res) => {
 
     await complaint.save();
 
+    await AuditLog.logAction({
+      action: 'RESOLUTION_DISPUTED',
+      performedBy: req.user || { name: 'Citizen', role: 'CITIZEN' },
+      targetType: 'Complaint',
+      targetId: complaint.complaintId,
+      details: `Citizen disputed resolution on ${complaint.complaintId}: ${reason}`,
+      ipAddress: req.ip
+    });
+
     return res.status(200).json({
       success: true,
-      message: 'Dispute registered. Railway Department has been alerted.',
+      message: 'Dispute registered. Department has been notified for re-inspection.',
       data: complaint
     });
   } catch (error) {
@@ -272,22 +353,25 @@ export const previewAiAnalysis = async (req, res) => {
   try {
     const { description = '', category = 'Other', location = '' } = req.body;
 
-    const [aiDescription, cvResult, urgencyResult, deptResult] = await Promise.all([
-      aiService.generateComplaint(description, category, location),
-      aiService.detectObjects([], category),
-      aiService.predictUrgency(description, category),
-      aiService.classifyDepartment(description, category)
+    const [llmResult, cvResult] = await Promise.all([
+      aiService.analyzeWithLLM({ description, category, location }),
+      aiService.detectObjects([], category)
     ]);
 
     return res.status(200).json({
       success: true,
       data: {
-        aiGeneratedDescription: aiDescription,
+        aiGeneratedDescription: llmResult.structuredProblemStatement,
+        generatedProblemStatement: llmResult.structuredProblemStatement,
+        summary: llmResult.summary,
+        extractedDetails: llmResult.extractedDetails,
         detectedObjects: cvResult.detectedObjects,
         confidence: cvResult.confidence,
-        predictedCategory: category,
-        predictedUrgency: urgencyResult.predictedUrgency,
-        department: deptResult.department
+        predictedCategory: llmResult.suggestedCategory || category,
+        predictedUrgency: llmResult.suggestedUrgency || 'Medium',
+        department: llmResult.suggestedDepartment || { id: 'railway', code: 'RLY', name: 'Railway Department' },
+        correctionsApplied: llmResult.correctionsApplied,
+        provider: llmResult.provider
       }
     });
   } catch (error) {
@@ -298,39 +382,24 @@ export const previewAiAnalysis = async (req, res) => {
 
 /**
  * ==========================================
- * RAILWAY DEPARTMENT CONTROLLERS
+ * RAILWAY / BACKWARD COMPATIBILITY CONTROLLERS
  * ==========================================
  */
-
-// GET /api/railway/complaints
 export const getRailwayComplaints = async (req, res) => {
   try {
-    const {
-      status,
-      urgency,
-      category,
-      search,
-      sortBy = 'createdAt',
-      sortOrder = 'desc'
-    } = req.query;
-
+    const { status, urgency, category, search, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
     const filter = { 'department.id': 'railway' };
 
-    if (status && status !== 'All') {
-      filter.status = status;
-    }
-    if (urgency && urgency !== 'All') {
-      filter.urgency = urgency;
-    }
-    if (category && category !== 'All') {
-      filter.category = category;
-    }
+    if (status && status !== 'All') filter.status = status;
+    if (urgency && urgency !== 'All') filter.urgency = urgency;
+    if (category && category !== 'All') filter.category = category;
 
     if (search && search.trim() !== '') {
       const searchRegex = new RegExp(search.trim(), 'i');
       filter.$or = [
         { complaintId: searchRegex },
         { description: searchRegex },
+        { generatedProblemStatement: searchRegex },
         { aiGeneratedDescription: searchRegex },
         { 'location.address': searchRegex },
         { category: searchRegex }
@@ -353,12 +422,10 @@ export const getRailwayComplaints = async (req, res) => {
   }
 };
 
-// GET /api/railway/complaints/:id
 export const getRailwayComplaintById = async (req, res) => {
   return getComplaintById(req, res);
 };
 
-// PATCH /api/railway/complaints/:id/status
 export const updateRailwayStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -369,7 +436,7 @@ export const updateRailwayStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid status provided' });
     }
 
-    const query = id.startsWith('RLY-') || id.includes('-') ? { complaintId: id } : { _id: id };
+    const query = id.startsWith('JNS-') || id.startsWith('RLY-') || id.includes('-') ? { complaintId: id } : { _id: id };
     const complaint = await Complaint.findOne(query);
 
     if (!complaint) {
@@ -401,7 +468,6 @@ export const updateRailwayStatus = async (req, res) => {
   }
 };
 
-// POST /api/railway/complaints/:id/progress
 export const addRailwayProgressUpdate = async (req, res) => {
   try {
     const { id } = req.params;
@@ -413,7 +479,7 @@ export const addRailwayProgressUpdate = async (req, res) => {
 
     const progressMedia = req.files?.resolutionMedia?.map(f => getFileUrl(req, f)) || [];
 
-    const query = id.startsWith('RLY-') || id.includes('-') ? { complaintId: id } : { _id: id };
+    const query = id.startsWith('JNS-') || id.startsWith('RLY-') || id.includes('-') ? { complaintId: id } : { _id: id };
     const complaint = await Complaint.findOne(query);
 
     if (!complaint) {
@@ -448,15 +514,10 @@ export const addRailwayProgressUpdate = async (req, res) => {
   }
 };
 
-// POST /api/railway/complaints/:id/resolve
 export const resolveRailwayComplaint = async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      resolutionDescription,
-      officerName = 'Railway Officer',
-      officerRole = 'Divisional Engineer'
-    } = req.body;
+    const { resolutionDescription, officerName = 'Railway Officer', officerRole = 'Divisional Engineer' } = req.body;
 
     if (!resolutionDescription || !resolutionDescription.trim()) {
       return res.status(400).json({ success: false, message: 'Resolution description is required' });
@@ -464,7 +525,7 @@ export const resolveRailwayComplaint = async (req, res) => {
 
     const resolutionMedia = req.files?.resolutionMedia?.map(f => getFileUrl(req, f)) || [];
 
-    const query = id.startsWith('RLY-') || id.includes('-') ? { complaintId: id } : { _id: id };
+    const query = id.startsWith('JNS-') || id.startsWith('RLY-') || id.includes('-') ? { complaintId: id } : { _id: id };
     const complaint = await Complaint.findOne(query);
 
     if (!complaint) {
@@ -504,7 +565,6 @@ export const resolveRailwayComplaint = async (req, res) => {
   }
 };
 
-// POST /api/railway/complaints/:id/escalate
 export const escalateRailwayComplaint = async (req, res) => {
   try {
     const { id } = req.params;
@@ -514,7 +574,7 @@ export const escalateRailwayComplaint = async (req, res) => {
       officerName = 'Railway Officer'
     } = req.body;
 
-    const query = id.startsWith('RLY-') || id.includes('-') ? { complaintId: id } : { _id: id };
+    const query = id.startsWith('JNS-') || id.startsWith('RLY-') || id.includes('-') ? { complaintId: id } : { _id: id };
     const complaint = await Complaint.findOne(query);
 
     if (!complaint) {
@@ -555,7 +615,6 @@ export const escalateRailwayComplaint = async (req, res) => {
   }
 };
 
-// GET /api/railway/dashboard/stats
 export const getRailwayDashboardStats = async (req, res) => {
   try {
     const filter = { 'department.id': 'railway' };
@@ -584,7 +643,6 @@ export const getRailwayDashboardStats = async (req, res) => {
       Complaint.find(filter).sort({ createdAt: -1 }).limit(6)
     ]);
 
-    // Breakdown by category
     const categoryStats = await Complaint.aggregate([
       { $match: filter },
       { $group: { _id: '$category', count: { $sum: 1 } } },
@@ -612,5 +670,64 @@ export const getRailwayDashboardStats = async (req, res) => {
   } catch (error) {
     console.error('[getRailwayDashboardStats Error]', error);
     return res.status(500).json({ success: false, message: error.message || 'Failed to fetch dashboard stats' });
+  }
+};
+
+// POST /api/complaints/:id/send-tracking-email
+export const sendComplaintTrackingEmail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { email } = req.body;
+
+    if (!email || !email.trim() || !email.includes('@')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid email address.'
+      });
+    }
+
+    const complaint = await Complaint.findOne({
+      $or: [
+        { complaintId: id },
+        { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }
+      ]
+    });
+
+    if (!complaint) {
+      return res.status(404).json({
+        success: false,
+        message: 'Grievance record not found.'
+      });
+    }
+
+    const emailResult = await sendComplaintConfirmationEmail({
+      complaintId: complaint.complaintId,
+      recipientEmail: email.trim().toLowerCase(),
+      recipientName: complaint.citizenDetails?.name || 'Citizen',
+      departmentName: complaint.department?.name || 'Public Department',
+      category: complaint.category,
+      description: complaint.description,
+      address: complaint.location?.address || 'Civic Premises',
+      urgency: complaint.urgency,
+      portalUrl: process.env.CLIENT_URL || 'http://localhost:5173'
+    });
+
+    if (!emailResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: 'Could not send tracking email. Please verify email settings.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Tracking details sent to ${email.trim().toLowerCase()}`
+    });
+  } catch (error) {
+    console.error('[sendComplaintTrackingEmail Error]', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to send tracking email'
+    });
   }
 };
