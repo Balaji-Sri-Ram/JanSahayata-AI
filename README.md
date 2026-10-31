@@ -122,7 +122,6 @@ CAPSTONE/
 ```
 
 ---
-
 ## Quick Start & Verification
 
 ### 1. Start MongoDB & Seed Demo Data
@@ -138,6 +137,8 @@ cd server
 npm start
 # Running on http://localhost:5001
 ```
+
+
 
 ### 3. Start Frontend Client
 ```bash
