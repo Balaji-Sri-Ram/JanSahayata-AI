@@ -1,4 +1,4 @@
-# JanSahayata AI (CPGRAMS) — Multi-Department Citizen Grievance Redressal & Mediation Platform
+# JanSahayata AI — Citizen–Government Grievance Mediation Platform (MVP)
 
 An AI-powered, multi-department Civic & Railway Grievance Redressal Platform built in alignment with Government of India digital governance standards (CPGRAMS / JanSahayata). Connecting citizens directly with government departments (Railways, Municipal Corporation, Water Supply & Sewerage, PWD, Electricity Board) through multi-modal grievance reporting, automated LLM categorization, YOLOv8 computer vision detection, and transparent officer resolution workflows.
 
@@ -200,8 +200,7 @@ CAPSTONE/
 ```
 
 ---
-
-## Environment Configuration
+## Quick Start & Verification
 
 Create a `.env` file in the `server/` directory:
 
@@ -247,7 +246,9 @@ npm run dev
 # Backend runs on http://localhost:5001
 ```
 
-### 3. Frontend Setup
+
+
+### 3. Start Frontend Client
 ```bash
 cd client
 npm install
@@ -257,20 +258,3 @@ npm run dev
 # Frontend runs on http://localhost:5173
 ```
 
----
-
-## Default Seeded Accounts
-
-| Role | Email | Password | Access Area |
-| :--- | :--- | :--- | :--- |
-| **Super Admin** | `admin@jansahayata.gov.in` | `Admin@JanSahayata2026!` | `/admin/dashboard` |
-| **Railway Officer** | `officer.railway@jansahayata.gov.in` | `Officer@123` | `/staff/dashboard` |
-| **Municipal Officer** | `officer.municipality@jansahayata.gov.in` | `Officer@123` | `/staff/dashboard` |
-| **Water Supply Officer** | `officer.water@jansahayata.gov.in` | `Officer@123` | `/staff/dashboard` |
-| **Demo Citizen** | `citizen@example.com` | `Citizen@123` | `/report-problem`, `/my-complaints` |
-
----
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
