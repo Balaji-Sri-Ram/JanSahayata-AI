@@ -2,7 +2,7 @@ import React from 'react';
 
 /**
  * Official State Emblem of India (Lion Capital of Ashoka with Satyameva Jayate)
- * Renders the authentic official emblem as provided by the user.
+ * Features bright, crisp authentic lion details with a subtle regal gold-shimmer animation.
  */
 export default function EmblemLogo({ size = 'md', className = '' }) {
   const sizeMap = {
@@ -16,11 +16,14 @@ export default function EmblemLogo({ size = 'md', className = '' }) {
   const dim = sizeMap[size] || sizeMap.md;
 
   return (
-    <div className={`shrink-0 overflow-hidden rounded bg-[#0b1d3a] p-1 border border-amber-400/30 shadow-sm flex items-center justify-center ${dim} ${className}`}>
+    <div 
+      className={`shrink-0 flex items-center justify-center transition-all duration-300 bg-transparent ${dim} ${className}`}
+      title="State Emblem of India • Government of India"
+    >
       <img
         src="/emblem.jpg"
-        alt="State Emblem of India"
-        className="w-full h-full object-contain"
+        alt="State Emblem of India (Three Lions Capital)"
+        className="w-full h-full object-contain emblem-image-enhanced select-none"
         loading="eager"
       />
     </div>

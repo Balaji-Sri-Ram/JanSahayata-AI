@@ -4,7 +4,8 @@ import {
   getComplaintsByCitizen,
   getComplaintById,
   verifyResolution,
-  disputeResolution
+  disputeResolution,
+  sendComplaintTrackingEmail
 } from '../controllers/complaintController.js';
 import { complaintUpload } from '../middleware/upload.js';
 import { optionalAuth } from '../middleware/auth.js';
@@ -17,5 +18,6 @@ router.get('/citizen/:citizenId', optionalAuth, getComplaintsByCitizen);
 router.get('/:id', optionalAuth, getComplaintById);
 router.post('/:id/verify-resolution', optionalAuth, verifyResolution);
 router.post('/:id/dispute', optionalAuth, complaintUpload, disputeResolution);
+router.post('/:id/send-tracking-email', optionalAuth, sendComplaintTrackingEmail);
 
 export default router;

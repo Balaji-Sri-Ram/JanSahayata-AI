@@ -62,6 +62,42 @@ const UserSchema = new mongoose.Schema({
   resetPasswordOtpExpires: {
     type: Date,
     default: null
+  },
+  // Citizen Registration Email Confirmation OTP
+  emailVerificationOtp: {
+    type: String,
+    default: null
+  },
+  emailVerificationOtpExpires: {
+    type: Date,
+    default: null
+  },
+  // Citizen Email Change (Dual OTP flow)
+  currentEmailOtp: {
+    type: String,
+    default: null
+  },
+  currentEmailOtpExpires: {
+    type: Date,
+    default: null
+  },
+  emailChangeCurrentVerified: {
+    type: Boolean,
+    default: false
+  },
+  pendingNewEmail: {
+    type: String,
+    default: null,
+    lowercase: true,
+    trim: true
+  },
+  newEmailOtp: {
+    type: String,
+    default: null
+  },
+  newEmailOtpExpires: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true

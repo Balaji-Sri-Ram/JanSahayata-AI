@@ -136,6 +136,16 @@ export const AuthProvider = ({ children }) => {
     setUser((prev) => (prev ? { ...prev, ...patch } : prev));
   }, []);
 
+  const setAuthData = useCallback((newToken, newUser) => {
+    if (newToken) {
+      setToken(newToken);
+      localStorage.setItem('jansahayata_token', newToken);
+    }
+    if (newUser) {
+      setUser(newUser);
+    }
+  }, []);
+
   const value = {
     user,
     token,
@@ -150,6 +160,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateUser,
+    setAuthData,
     refreshUser: restoreUser
   };
 

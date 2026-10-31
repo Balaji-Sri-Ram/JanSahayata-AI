@@ -10,17 +10,20 @@ import {
   ArrowRight,
   ShieldCheck,
   FileCheck,
-  UserCheck
+  UserCheck,
+  Mail
 } from 'lucide-react';
 import { citizenApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import StatusBadge from '../../components/StatusBadge';
 import UrgencyBadge from '../../components/UrgencyBadge';
+import CitizenEmailChangeModal from '../../components/CitizenEmailChangeModal';
 
 export default function CitizenDashboard() {
   const { user } = useAuth();
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   useEffect(() => {
     fetchCitizenData();
@@ -67,6 +70,18 @@ export default function CitizenDashboard() {
           <p className="text-xs text-slate-500 mt-1">
             Monitor the status of your reported civic issues and confirm completed department work.
           </p>
+          <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-600">
+            <span>Email: <strong className="font-mono text-slate-800">{user?.email}</strong></span>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => setShowEmailModal(true)}
+              className="text-[#0b2545] hover:text-[#e86100] font-semibold underline inline-flex items-center gap-1"
+            >
+              <Mail className="w-3 h-3 text-[#0b2545]" />
+              <span>Change Email Address (OTP)</span>
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -196,6 +211,12 @@ export default function CitizenDashboard() {
           </div>
         )}
       </div>
+
+      {/* Citizen Email Change Modal */}
+      <CitizenEmailChangeModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+      />
 
     </div>
   );

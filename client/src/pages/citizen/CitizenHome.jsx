@@ -20,6 +20,7 @@ import {
   FileText,
   Phone,
   AlertTriangle,
+  AlertCircle,
   Layers,
   CheckCheck,
   Shield,
@@ -32,12 +33,17 @@ export default function CitizenHome() {
   const navigate = useNavigate();
   const { t, currentLang } = useLanguage();
   const [trackIdInput, setTrackIdInput] = useState('');
+  const [trackError, setTrackError] = useState('');
 
   const handleTrackSubmit = (e) => {
     e.preventDefault();
-    if (trackIdInput.trim()) {
-      navigate(`/complaint/${trackIdInput.trim()}`);
+    const cleanId = trackIdInput.trim();
+    if (!cleanId) {
+      setTrackError('Please enter your Complaint Tracking ID (e.g., JNS-2026-000001) to check grievance status.');
+      return;
     }
+    setTrackError('');
+    navigate(`/complaint/${cleanId}`);
   };
 
   const departments = [
@@ -132,51 +138,57 @@ export default function CitizenHome() {
   ];
 
   return (
-    <div className="space-y-8 sm:space-y-10 pb-16">
+    <div className="space-y-6 sm:space-y-8 pb-16 max-w-full overflow-hidden">
       
-      {/* 1. Important Live Notice Ribbon (Simple English) */}
-      <div className="bg-amber-50 border border-amber-200 rounded text-slate-800 text-xs overflow-hidden flex items-center shadow-sm">
-        <div className="bg-[#e86100] text-white px-3 py-2 font-bold shrink-0 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
-          <FileText className="w-3.5 h-3.5" />
-          <span>Notice</span>
-        </div>
-        <div className="overflow-hidden whitespace-nowrap w-full py-1.5 px-3">
-          <div className="animate-ticker text-xs font-medium text-slate-700">
-            <span>{t('tickerNotice')}</span>
-            <span className="mx-6 text-amber-500">•</span>
-            <span>All registered complaints are tracked under official service guidelines.</span>
-            <span className="mx-6 text-amber-500">•</span>
-            <span>You can reopen any complaint if the work is not done to your satisfaction.</span>
+      {/* Top Banner & Main Portal Box Container with Tight Spacing */}
+      <div className="space-y-3 max-w-full overflow-hidden">
+        {/* 1. Important Live Notice Ribbon (Simple English) */}
+        <div className="bg-amber-50 border border-amber-200 rounded text-slate-800 text-xs overflow-hidden flex items-center shadow-sm max-w-full">
+          <div className="bg-[#e86100] text-white px-2.5 sm:px-3 py-1.5 sm:py-2 font-bold shrink-0 flex items-center gap-1.5 uppercase tracking-wider text-[10px] sm:text-[11px]">
+            <FileText className="w-3.5 h-3.5" />
+            <span>Notice</span>
           </div>
-        </div>
-      </div>
-
-      {/* 2. Official Portal Hero Section (Simple English, No generic AI buzzwords, No Hindi in buttons) */}
-      <section className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden relative">
-        
-        {/* Subtle Ashoka Emblem watermark in background */}
-        <div className="absolute right-4 top-4 opacity-5 pointer-events-none hidden lg:block">
-          <EmblemLogo size="xl" className="w-32 h-36 border-none bg-transparent" />
-        </div>
-
-        {/* Top Header Banner Ribbon */}
-        <div className="bg-[#0b2545] text-white px-5 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2 border-b border-[#163b6b]">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded bg-amber-500 text-slate-900 font-bold text-[10px] uppercase tracking-wider">
-              Official Portal
-            </span>
-            <span className="text-xs text-slate-200 font-medium">
-              Government of India • Citizen Redressal Service
-            </span>
-          </div>
-          <div className="text-[11px] text-amber-300 font-medium">
-            24x7 Public Assistance
+          <div className="overflow-hidden whitespace-nowrap min-w-0 flex-1 py-1.5 px-3">
+            <div className="animate-ticker text-xs font-medium text-slate-700">
+              <span>{t('tickerNotice')}</span>
+              <span className="mx-6 text-amber-500">•</span>
+              <span>All registered complaints are tracked under official service guidelines.</span>
+              <span className="mx-6 text-amber-500">•</span>
+              <span>You can reopen any complaint if the work is not done to your satisfaction.</span>
+            </div>
           </div>
         </div>
 
-        {/* Hero Content */}
-        <div className="p-6 sm:p-10 lg:p-12">
-          <div className="max-w-3xl">
+        {/* 2. Official Portal Hero Section (Simple English, No generic AI buzzwords, No Hindi in buttons) */}
+        <section className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden relative max-w-full">
+
+          {/* Top Header Banner Ribbon */}
+          <div className="bg-[#0b2545] text-white px-3 sm:px-8 py-2 flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 border-b border-[#163b6b] max-w-full overflow-hidden">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 truncate">
+              <span className="px-1.5 py-0.5 rounded bg-amber-500 text-slate-900 font-bold text-[9px] sm:text-[10px] uppercase tracking-wider shrink-0">
+                Official Portal
+              </span>
+              <span className="text-[11px] sm:text-xs text-slate-200 font-medium truncate">
+                Government of India • Citizen Redressal Service
+              </span>
+            </div>
+            <div className="text-[10px] sm:text-[11px] text-amber-300 font-medium shrink-0">
+              24x7 Public Assistance
+            </div>
+          </div>
+
+          {/* Hero Content */}
+          <div className="p-4 sm:p-10 lg:p-12 relative overflow-hidden">
+            {/* Subtle Authentic JanSahayata State Emblem Watermark */}
+            <div className="absolute right-6 sm:right-10 top-1/2 -translate-y-1/2 opacity-10 pointer-events-none hidden lg:block select-none mix-blend-multiply">
+              <img
+                src="/emblem.jpg"
+                alt="State Emblem of India • JanSahayata"
+                className="w-48 h-56 object-contain mix-blend-multiply select-none"
+              />
+            </div>
+
+            <div className="max-w-3xl relative z-10">
             
             {/* Simple Clean Title */}
             <div className="space-y-2 mb-4">
@@ -196,6 +208,7 @@ export default function CitizenHome() {
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-8">
               <Link
                 to="/report"
+                id="hero-file-complaint-btn"
                 className="gov-btn-saffron px-6 py-3 text-sm shadow-md flex items-center justify-center gap-2 font-semibold"
               >
                 <PlusCircle className="w-4 h-4" />
@@ -221,7 +234,7 @@ export default function CitizenHome() {
 
             {/* Quick Status Lookup Box */}
             <div className="p-4 bg-slate-50 rounded-lg border border-slate-300 max-w-2xl">
-              <form onSubmit={handleTrackSubmit}>
+              <form onSubmit={handleTrackSubmit} noValidate>
                 <label 
                   htmlFor="quickTrack" 
                   className="block text-xs font-bold text-[#0b2545] uppercase tracking-wider mb-2 flex items-center justify-between"
@@ -238,17 +251,28 @@ export default function CitizenHome() {
                       type="text"
                       placeholder={t('quickTrackPlaceholder')}
                       value={trackIdInput}
-                      onChange={(e) => setTrackIdInput(e.target.value)}
-                      className="gov-input pl-10 text-xs py-2.5 font-mono"
+                      onChange={(e) => {
+                        setTrackIdInput(e.target.value);
+                        if (trackError) setTrackError('');
+                      }}
+                      className={`gov-input pl-10 text-xs py-2.5 font-mono ${
+                        trackError ? 'border-red-500 bg-red-50/40 ring-1 ring-red-400 focus:border-red-600' : ''
+                      }`}
                     />
                   </div>
                   <button
                     type="submit"
-                    className="gov-btn-primary text-xs py-2.5 px-6 whitespace-nowrap"
+                    className="gov-btn-primary text-xs py-2.5 px-6 whitespace-nowrap active:scale-[0.98] transition-transform"
                   >
                     {t('checkStatusBtn')}
                   </button>
                 </div>
+                {trackError && (
+                  <div className="mt-2 text-xs text-red-600 font-medium flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                    <span>{trackError}</span>
+                  </div>
+                )}
               </form>
             </div>
 
@@ -300,6 +324,7 @@ export default function CitizenHome() {
         </div>
 
       </section>
+      </div>
 
       {/* 3. Emergency & Grievance Helplines Strip */}
       <section className="space-y-3">

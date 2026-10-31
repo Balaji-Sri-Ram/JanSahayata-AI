@@ -1,20 +1,36 @@
 import mongoose from 'mongoose';
 
 const EmailChangeRequestSchema = new mongoose.Schema({
+  role: {
+    type: String,
+    enum: ['CITIZEN', 'EMPLOYEE'],
+    default: 'EMPLOYEE',
+    index: true
+  },
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    index: true
+  },
   officer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    default: null,
     index: true
   },
   officerName: {
     type: String,
-    required: true,
+    default: '',
+    trim: true
+  },
+  citizenName: {
+    type: String,
+    default: '',
     trim: true
   },
   employeeId: {
     type: String,
-    required: true,
+    default: '',
     trim: true,
     index: true
   },

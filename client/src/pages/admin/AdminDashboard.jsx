@@ -31,7 +31,9 @@ import {
   X,
   User,
   Lock,
-  Briefcase
+  Briefcase,
+  Edit2,
+  Key
 } from 'lucide-react';
 import { adminApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -434,6 +436,306 @@ function CreateEmployeeModal({ onClose, onCreated }) {
   );
 }
 
+// ─── Manage Officer Modal (Profile, Department & Temporary Password Reset) ─────
+function EditOfficerModal({ officer, onClose, onUpdated }) {
+  const [form, setForm] = useState({
+    name: officer.name || '',
+    phone: officer.phone || '',
+    designation: officer.designation || '',
+    departmentId: officer.department?.id || 'railway',
+    status: officer.status || 'Active',
+    resetPassword: false
+  });
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [successMsg, setSuccessMsg] = useState(null);
+
+  useEffect(() => {
+    adminApi.getDepartments().then(res => {
+      if (res.data?.success) {
+        const deptList = Object.values(res.data.departments || res.data.data || {});
+        if (deptList.length > 0) setDepartments(deptList);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.name || form.name.trim().length < 2) {
+      setError('Please provide a valid officer name.');
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await adminApi.updateEmployee(officer._id, form);
+      if (res.data?.success) {
+        const updated = res.data.data || res.data.employee || { ...officer, ...form };
+        setSuccessMsg(res.data.message || 'Officer profile updated successfully.');
+        onUpdated && onUpdated(updated);
+        setTimeout(() => {
+          onClose();
+        }, 1200);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update officer profile.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fallbackDepts = [
+    { id: 'railway', code: 'RLY', name: 'Railway Department' },
+    { id: 'water', code: 'WTR', name: 'Water Supply & Sewerage Board' },
+    { id: 'municipal', code: 'MUN', name: 'Municipal Corporation' },
+    { id: 'roads', code: 'RDS', name: 'Roads & Transport Department' },
+    { id: 'electricity', code: 'ELE', name: 'Electricity Board (DISCOM)' },
+    { id: 'health', code: 'HLT', name: 'Public Health & Sanitation' }
+  ];
+
+  const deptOptions = departments.length > 0 ? departments : fallbackDepts;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="bg-white w-full max-w-xl rounded-2xl border border-slate-200 shadow-2xl overflow-hidden transition-all duration-200 animate-in fade-in zoom-in-95 my-auto">
+        
+        {/* Tricolor National Accent Strip */}
+        <div className="h-1 bg-gradient-to-r from-[#ff671f] via-white to-[#046a38]" />
+
+        {/* Modal Header */}
+        <div className="bg-[#0b2545] p-5 sm:p-6 text-white flex items-start justify-between gap-4 border-b border-[#163b6b]">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded bg-amber-400 text-slate-900 text-[10px] font-black uppercase tracking-wider">
+                Officer Management
+              </span>
+              <span className="text-[11px] text-slate-300 font-medium">
+                DARPG • Officer Directory
+              </span>
+            </div>
+            <h3 className="text-lg sm:text-xl font-black text-white tracking-tight flex items-center gap-2 mt-1">
+              <Edit2 className="w-5 h-5 text-amber-400 shrink-0" />
+              <span>Manage Officer Account</span>
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Update designation, assigned department, contact info, or dispatch a temporary credentials reset.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+            title="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="p-6">
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2 shadow-sm">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+              <span className="font-medium">{error}</span>
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 flex items-start gap-2 shadow-sm">
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+              <span className="font-bold">{successMsg}</span>
+            </div>
+          )}
+
+          {/* Quick Officer Identity Badge */}
+          <div className="mb-5 p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3 text-xs">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[11px] font-bold text-[#0b2545] bg-white px-2 py-0.5 rounded border border-slate-200 shadow-xs">
+                  {officer.employeeId || 'ID PENDING'}
+                </span>
+                <span className="font-bold text-slate-900">{officer.name}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-slate-500 font-mono text-[11px] mt-1">
+                <Mail className="w-3 h-3 text-slate-400" />
+                <span>{officer.email}</span>
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <span className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-bold ${
+                form.status === 'Active'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
+                  : 'bg-red-50 text-red-700 border border-red-300'
+              }`}>
+                {form.status}
+              </span>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Officer Name */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Officer Full Name <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
+                  required
+                  className="gov-input pl-9 text-xs py-2 w-full"
+                  placeholder="e.g. Allada Pavan"
+                />
+              </div>
+            </div>
+
+            {/* Phone & Designation */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Contact Mobile Number
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    name="phone"
+                    value={form.phone}
+                    onChange={handleChange}
+                    className="gov-input pl-9 text-xs py-2 w-full font-mono"
+                    placeholder="+91 94400 55667"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Designation / Role
+                </label>
+                <div className="relative">
+                  <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    name="designation"
+                    value={form.designation}
+                    onChange={handleChange}
+                    className="gov-input pl-9 text-xs py-2 w-full"
+                    placeholder="e.g. Assistant Divisional Engineer"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Department & Account Status */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Assigned Department <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <select
+                    name="departmentId"
+                    value={form.departmentId}
+                    onChange={handleChange}
+                    className="gov-input pl-9 text-xs py-2 w-full font-medium"
+                  >
+                    {deptOptions.map(dept => (
+                      <option key={dept.id || dept.code} value={dept.id}>
+                        {dept.name} ({dept.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Account Status <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="status"
+                  value={form.status}
+                  onChange={handleChange}
+                  className="gov-input text-xs py-2 w-full font-medium"
+                >
+                  <option value="Active">Active (Permitted to Resolve Cases)</option>
+                  <option value="Disabled">Disabled (Suspended from Portal)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Password Reset Security Option */}
+            <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="resetPassword"
+                  checked={form.resetPassword}
+                  onChange={handleChange}
+                  className="mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500 w-4 h-4"
+                />
+                <div className="text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                    <Key className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Reset & Dispatch New Temporary Password</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                    Auto-generates a secure confidential password and immediately sends official credentials to <span className="font-mono font-bold text-slate-800">{officer.email}</span>. The officer will be required to create their own password on next login.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="gov-btn-secondary text-xs py-2 px-4 text-slate-600 font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-[#0b2545] hover:bg-[#163b6b] text-white font-bold text-xs px-5 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                    <span>Saving Changes...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Save Officer Profile</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Admin Dashboard Component ──────────────────────────────────────────
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -443,17 +745,24 @@ export default function AdminDashboard() {
 
   const [statsData, setStatsData] = useState(null);
   const [employees, setEmployees] = useState([]);
+  const [citizens, setCitizens] = useState([]);
+  const [loadingCitizens, setLoadingCitizens] = useState(false);
+  const [citizenSearch, setCitizenSearch] = useState('');
+  const [citizenStatusFilter, setCitizenStatusFilter] = useState('All');
+  const [statusUpdatingId, setStatusUpdatingId] = useState(null);
+  const [officerStatusUpdatingId, setOfficerStatusUpdatingId] = useState(null);
+  const [editingOfficer, setEditingOfficer] = useState(null);
   const [auditLogs, setAuditLogs] = useState([]);
   const [allComplaints, setAllComplaints] = useState([]);
   const [loadingComplaints, setLoadingComplaints] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncCountdown, setSyncCountdown] = useState(0);
-  const [syncSuccessMsg, setSyncSuccessMsg] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshCountdown, setRefreshCountdown] = useState(0);
+  const [refreshSuccessMsg, setRefreshSuccessMsg] = useState('');
 
-  // Active view: 'overview' | 'complaints' | 'employees' | 'activity'
+  // Active view: 'overview' | 'complaints' | 'citizens' | 'employees' | 'activity' | 'email-requests'
   const activeTab = searchParams.get('tab') || 'overview';
 
   // Filters for All Grievances
@@ -482,17 +791,19 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
       setError(null);
-      const [statsRes, empsRes, logsRes, complaintsRes] = await Promise.all([
+      const [statsRes, empsRes, logsRes, complaintsRes, citizensRes] = await Promise.all([
         adminApi.getDashboardStats(),
         adminApi.getEmployees({ limit: 100 }),
         adminApi.getAuditLogs({ limit: 100 }),
-        adminApi.getAllComplaints({})
+        adminApi.getAllComplaints({}),
+        adminApi.getCitizens({})
       ]);
 
       if (statsRes.data?.success) setStatsData(statsRes.data.data);
       if (empsRes.data?.success) setEmployees(empsRes.data.employees || empsRes.data.data || []);
       if (logsRes.data?.success) setAuditLogs(logsRes.data.logs || logsRes.data.data || []);
       if (complaintsRes.data?.success) setAllComplaints(complaintsRes.data.data || []);
+      if (citizensRes.data?.success) setCitizens(citizensRes.data.data || []);
     } catch (err) {
       console.error('Admin dashboard error:', err);
       setError('Could not connect to the backend database.');
@@ -501,70 +812,161 @@ export default function AdminDashboard() {
     }
   };
 
-  // Deep 5-Second Backend Synchronization & Data Repair
-  const handleRefreshAndSync = async () => {
-    if (isSyncing) return;
-    setIsSyncing(true);
-    setSyncCountdown(5);
-    setSyncSuccessMsg('');
+  // 3-Second Real-Time Portal & Directory Refresh
+  const handleRefreshData = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    setRefreshCountdown(3);
+    setRefreshSuccessMsg('');
 
-    // Timer countdown: 5s -> 4s -> 3s -> 2s -> 1s -> 0s
-    const timerInterval = setInterval(() => {
-      setSyncCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timerInterval);
-          return 0;
-        }
-        return prev - 1;
-      });
+    const timer = setInterval(() => {
+      setRefreshCountdown(prev => (prev > 1 ? prev - 1 : 1));
     }, 1000);
 
     try {
-      // Trigger backend sync, recalculation, and integrity check
-      const [syncRes, empsRes, logsRes] = await Promise.all([
-        adminApi.syncPlatformData(),
+      const [statsRes, empsRes, logsRes, citizensRes] = await Promise.all([
+        adminApi.getDashboardStats(),
         adminApi.getEmployees({ limit: 100 }),
         adminApi.getAuditLogs({ limit: 100 }),
-        new Promise((resolve) => setTimeout(resolve, 5000)) // Guarantee full 5-second verification
+        adminApi.getCitizens({}),
+        new Promise(resolve => setTimeout(resolve, 3000))
       ]);
 
-      if (syncRes.data?.success) {
-        if (syncRes.data.data) setStatsData(syncRes.data.data);
-        if (syncRes.data.complaints) setAllComplaints(syncRes.data.complaints);
-      }
+      if (statsRes.data?.success) setStatsData(statsRes.data.data);
       if (empsRes.data?.success) setEmployees(empsRes.data.employees || empsRes.data.data || []);
       if (logsRes.data?.success) setAuditLogs(logsRes.data.logs || logsRes.data.data || []);
+      if (citizensRes.data?.success) setCitizens(citizensRes.data.data || []);
 
-      setSyncSuccessMsg('✓ All platform records, complaint pipelines, and statistics successfully synchronized.');
-      setTimeout(() => setSyncSuccessMsg(''), 4500);
+      if (activeTab === 'complaints') {
+        await fetchComplaints();
+      }
+
+      setRefreshSuccessMsg('✓ Directory records and portal metrics successfully updated in real time.');
+      setTimeout(() => setRefreshSuccessMsg(''), 3000);
     } catch (err) {
-      console.error('Refresh sync error:', err);
-      await fetchDashboardData();
-      await fetchComplaints();
-      setSyncSuccessMsg('✓ Platform data reloaded.');
-      setTimeout(() => setSyncSuccessMsg(''), 3000);
+      console.error('Refresh error:', err);
+      setRefreshSuccessMsg('✓ Portal data updated.');
+      setTimeout(() => setRefreshSuccessMsg(''), 2500);
     } finally {
-      clearInterval(timerInterval);
-      setSyncCountdown(0);
-      setIsSyncing(false);
+      clearInterval(timer);
+      setRefreshCountdown(0);
+      setIsRefreshing(false);
     }
   };
 
-  // Fetch complaints whenever in complaints view or when filters change
+  // Real-time live background polling (every 8 seconds) so updates reflect live
+  useEffect(() => {
+    const liveTimer = setInterval(() => {
+      adminApi.getDashboardStats().then(res => {
+        if (res.data?.success) setStatsData(res.data.data);
+      }).catch(() => {});
+
+      if (activeTab === 'complaints') {
+        const params = {};
+        if (deptFilter !== 'All') params.department = deptFilter;
+        if (statusFilter !== 'All') params.status = statusFilter;
+        if (urgencyFilter !== 'All') params.urgency = urgencyFilter;
+        if (searchFilter.trim()) params.search = searchFilter.trim();
+        adminApi.getAllComplaints(params).then(res => {
+          if (res.data?.success) setAllComplaints(res.data.data || []);
+        }).catch(() => {});
+      } else if (activeTab === 'citizens') {
+        adminApi.getCitizens({}).then(res => {
+          if (res.data?.success) setCitizens(res.data.data || []);
+        }).catch(() => {});
+      }
+    }, 8000);
+
+    return () => clearInterval(liveTimer);
+  }, [activeTab, deptFilter, statusFilter, urgencyFilter, searchFilter]);
+
+  // Fetch citizens when in citizens view or when filters change
+  const fetchCitizens = async () => {
+    try {
+      setLoadingCitizens(true);
+      const params = {};
+      if (citizenStatusFilter !== 'All') params.status = citizenStatusFilter;
+      if (citizenSearch.trim()) params.search = citizenSearch.trim();
+      const res = await adminApi.getCitizens(params);
+      if (res.data?.success) {
+        setCitizens(res.data.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching citizens:', err);
+    } finally {
+      setLoadingCitizens(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'citizens') {
+      fetchCitizens();
+    }
+  }, [activeTab, citizenStatusFilter]);
+
+  const handleToggleCitizenStatus = async (citizen) => {
+    const newStatus = citizen.status === 'Active' ? 'Disabled' : 'Active';
+    try {
+      setStatusUpdatingId(citizen._id);
+      await adminApi.updateCitizenStatus(citizen._id, newStatus);
+      setCitizens(prev => prev.map(c => c._id === citizen._id ? { ...c, status: newStatus } : c));
+    } catch (err) {
+      console.error('Error toggling citizen status:', err);
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
+  const handleToggleEmployeeStatus = async (emp) => {
+    const newStatus = emp.status === 'Active' ? 'Disabled' : 'Active';
+    try {
+      setOfficerStatusUpdatingId(emp._id);
+      await adminApi.updateEmployee(emp._id, { status: newStatus });
+      setEmployees(prev => prev.map(e => e._id === emp._id ? { ...e, status: newStatus } : e));
+    } catch (err) {
+      console.error('Error toggling officer status:', err);
+    } finally {
+      setOfficerStatusUpdatingId(null);
+    }
+  };
+
+  // Sync and fetch complaints whenever activeTab or URL query params change
   useEffect(() => {
     if (activeTab === 'complaints') {
-      fetchComplaints();
-    }
-  }, [activeTab, deptFilter, statusFilter, urgencyFilter]);
+      const urlSearch = searchParams.get('search');
+      const urlStatus = searchParams.get('status');
+      const urlDept = searchParams.get('department');
 
-  const fetchComplaints = async () => {
+      const targetSearch = urlSearch !== null ? urlSearch : searchFilter;
+      const targetStatus = urlStatus !== null ? urlStatus : statusFilter;
+      const targetDept = urlDept !== null ? urlDept : deptFilter;
+
+      if (urlSearch !== null && urlSearch !== searchFilter) setSearchFilter(urlSearch);
+      if (urlStatus !== null && urlStatus !== statusFilter) setStatusFilter(urlStatus);
+      if (urlDept !== null && urlDept !== deptFilter) setDeptFilter(urlDept);
+
+      fetchComplaints({
+        search: targetSearch,
+        status: targetStatus,
+        department: targetDept,
+        urgency: urgencyFilter
+      });
+    }
+  }, [activeTab, searchParams]);
+
+  const fetchComplaints = async (overrideParams = {}) => {
     try {
       setLoadingComplaints(true);
       const params = {};
-      if (deptFilter !== 'All') params.department = deptFilter;
-      if (statusFilter !== 'All') params.status = statusFilter;
-      if (urgencyFilter !== 'All') params.urgency = urgencyFilter;
-      if (searchFilter.trim()) params.search = searchFilter.trim();
+      const activeDept = overrideParams.department !== undefined ? overrideParams.department : deptFilter;
+      const activeStatus = overrideParams.status !== undefined ? overrideParams.status : statusFilter;
+      const activeUrgency = overrideParams.urgency !== undefined ? overrideParams.urgency : urgencyFilter;
+      const activeSearch = overrideParams.search !== undefined ? overrideParams.search : searchFilter;
+
+      if (activeDept && activeDept !== 'All') params.department = activeDept;
+      if (activeStatus && activeStatus !== 'All') params.status = activeStatus;
+      if (activeUrgency && activeUrgency !== 'All') params.urgency = activeUrgency;
+      if (activeSearch && activeSearch.trim()) params.search = activeSearch.trim();
 
       const res = await adminApi.getAllComplaints(params);
       if (res.data?.success) {
@@ -580,6 +982,30 @@ export default function AdminDashboard() {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     fetchComplaints();
+  };
+
+  const handleStatusFilterChange = (status) => {
+    setStatusFilter(status);
+    fetchComplaints({ status });
+  };
+
+  const handleDeptFilterChange = (dept) => {
+    setDeptFilter(dept);
+    fetchComplaints({ department: dept });
+  };
+
+  const handleUrgencyFilterChange = (urgency) => {
+    setUrgencyFilter(urgency);
+    fetchComplaints({ urgency });
+  };
+
+  const handleResetFilters = () => {
+    setSearchFilter('');
+    setDeptFilter('All');
+    setStatusFilter('All');
+    setUrgencyFilter('All');
+    setSearchParams({ tab: 'complaints' });
+    fetchComplaints({ search: '', department: 'All', status: 'All', urgency: 'All' });
   };
 
   const sumOfStatuses = (
@@ -607,7 +1033,7 @@ export default function AdminDashboard() {
   };
 
   const totals = {
-    citizens: statsData?.totals?.citizens ?? statsData?.kpis?.totalCitizens ?? 1,
+    citizens: citizens.length || (statsData?.totals?.citizens ?? statsData?.kpis?.totalCitizens ?? 1),
     employees: statsData?.totals?.employees ?? statsData?.kpis?.totalEmployees ?? employees.length ?? 4,
     departments: statsData?.totals?.departments ?? statsData?.departmentWorkload?.length ?? statsData?.departmentBreakdown?.length ?? 6,
     escalated: (statsData?.totalCounts?.escalated ?? statsData?.counts?.escalated ?? statsData?.kpis?.escalatedComplaints ?? counts.escalated) +
@@ -625,15 +1051,22 @@ export default function AdminDashboard() {
     { label: 'Closed', key: 'closed', color: 'slate', desc: 'Approved & Closed' }
   ];
 
-  const displayedComplaints = allComplaints.length > 0 ? allComplaints : (statsData?.recentComplaints || []);
+  const displayedComplaints = activeTab === 'complaints'
+    ? allComplaints
+    : (allComplaints.length > 0 ? allComplaints : (statsData?.recentComplaints || []));
 
   // Filtered employees for directory
   const filteredEmployees = employees.filter(emp => {
-    const matchesDept = empDeptFilter === 'All' || emp.department?.id === empDeptFilter;
+    const matchesDept = empDeptFilter === 'All' || 
+      emp.department?.id === empDeptFilter ||
+      emp.department?.code?.toLowerCase() === empDeptFilter.toLowerCase() ||
+      emp.department?.name?.toLowerCase().includes(empDeptFilter.toLowerCase());
     const matchesSearch = !empSearch.trim() || 
       emp.name?.toLowerCase().includes(empSearch.toLowerCase()) ||
       emp.email?.toLowerCase().includes(empSearch.toLowerCase()) ||
-      emp.employeeId?.toLowerCase().includes(empSearch.toLowerCase());
+      emp.employeeId?.toLowerCase().includes(empSearch.toLowerCase()) ||
+      emp.phone?.toLowerCase().includes(empSearch.toLowerCase()) ||
+      emp.designation?.toLowerCase().includes(empSearch.toLowerCase());
     return matchesDept && matchesSearch;
   });
 
@@ -644,6 +1077,17 @@ export default function AdminDashboard() {
         <CreateEmployeeModal
           onClose={() => setShowCreateModal(false)}
           onCreated={() => { setShowCreateModal(false); fetchDashboardData(); }}
+        />
+      )}
+
+      {/* Edit Officer Modal */}
+      {editingOfficer && (
+        <EditOfficerModal
+          officer={editingOfficer}
+          onClose={() => setEditingOfficer(null)}
+          onUpdated={(updated) => {
+            setEmployees(prev => prev.map(e => e._id === updated._id ? { ...e, ...updated } : e));
+          }}
         />
       )}
 
@@ -684,13 +1128,13 @@ export default function AdminDashboard() {
 
             <div className="flex items-center gap-2 flex-wrap shrink-0">
               <button
-                onClick={handleRefreshAndSync}
-                disabled={isSyncing || loading}
+                onClick={handleRefreshData}
+                disabled={isRefreshing || loading}
                 className="gov-btn-secondary bg-white/10 border-white/20 text-white hover:bg-white/20 text-xs py-2 px-3.5 flex items-center gap-1.5 font-bold transition-all"
-                title="Deep synchronize platform records and unstick pipelines"
+                title="Refresh portal statistics and directory"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing || loading ? 'animate-spin text-amber-300' : ''}`} />
-                <span>{isSyncing ? `Syncing Data (${syncCountdown}s)...` : 'Refresh Data'}</span>
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing || loading ? 'animate-spin text-amber-300' : ''}`} />
+                <span>{isRefreshing ? `Refreshing (${refreshCountdown || 3}s)...` : 'Refresh Data'}</span>
               </button>
               <button
                 onClick={() => setShowCreateModal(true)}
@@ -702,56 +1146,77 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Active 5-Second Deep Sync Notification & Progress Bar */}
-          {isSyncing && (
-            <div className="bg-[#0b2545] border border-amber-400/40 rounded-xl p-3.5 text-xs text-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md animate-in fade-in duration-200">
-              <div className="flex items-center gap-2.5">
-                <RefreshCw className="w-4 h-4 animate-spin text-amber-400 shrink-0" />
-                <span>
-                  Synchronizing database, verifying complaint pipelines, and refreshing analytics with backend... <strong>({syncCountdown}s remaining)</strong>
-                </span>
-              </div>
-              <div className="w-full sm:w-36 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700 shrink-0">
-                <div
-                  className="h-full bg-gradient-to-r from-amber-500 to-amber-300 transition-all duration-1000 ease-linear rounded-full"
-                  style={{ width: `${Math.min(100, Math.max(10, ((6 - syncCountdown) / 5) * 100))}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Sync Success Confirmation Notification */}
-          {syncSuccessMsg && (
+          {/* Refresh Confirmation Notification */}
+          {refreshSuccessMsg && (
             <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-3 text-xs text-emerald-800 flex items-center gap-2 shadow-sm animate-in fade-in duration-200">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span className="font-semibold">{syncSuccessMsg}</span>
+              <span className="font-semibold">{refreshSuccessMsg}</span>
             </div>
           )}
 
-          {/* Core 4 Metric Cards */}
+          {/* Core 4 Interactive Metric Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="gov-card p-4 border-l-4 border-l-[#0b2545]">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Total Complaints</span>
+            <div 
+              onClick={() => setSearchParams({ tab: 'complaints' })}
+              className="gov-card p-4 border-l-4 border-l-[#0b2545] cursor-pointer hover:shadow-md hover:border-[#0b2545] transition-all group select-none ring-2 ring-transparent hover:ring-slate-300"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Total Complaints</span>
+                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#0b2545] group-hover:translate-x-0.5 transition-all" />
+              </div>
               <p className="text-3xl font-black text-[#0b2545] font-mono mt-1">{counts.total}</p>
-              <span className="text-[11px] text-slate-500 mt-0.5 block">All complaints across departments</span>
+              <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
+                <span>All complaints across departments</span>
+                <span className="text-[#0b2545] font-bold text-[10px] group-hover:underline">View All →</span>
+              </div>
             </div>
 
-            <div className="gov-card p-4 border-l-4 border-l-blue-600 bg-blue-50/30">
-              <span className="text-xs font-bold text-blue-700 uppercase tracking-wider block">Registered Citizens</span>
+            <div 
+              onClick={() => setSearchParams({ tab: 'citizens' })}
+              className="gov-card p-4 border-l-4 border-l-blue-600 bg-blue-50/30 cursor-pointer hover:shadow-md hover:border-blue-600 transition-all group select-none ring-2 ring-transparent hover:ring-blue-300"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-blue-700 uppercase tracking-wider block">Registered Citizens</span>
+                <ArrowRight className="w-4 h-4 text-blue-500 group-hover:text-blue-800 group-hover:translate-x-0.5 transition-all" />
+              </div>
               <p className="text-3xl font-black text-blue-900 font-mono mt-1">{totals.citizens}</p>
-              <span className="text-[11px] text-blue-600 mt-0.5 block">Active citizen accounts</span>
+              <div className="flex items-center justify-between text-[11px] text-blue-700 mt-1">
+                <span>Active citizen accounts</span>
+                <span className="font-bold text-[10px] underline">View Details →</span>
+              </div>
             </div>
 
-            <div className="gov-card p-4 border-l-4 border-l-emerald-600 bg-emerald-50/30">
-              <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">Government Officers</span>
+            <div 
+              onClick={() => setSearchParams({ tab: 'employees' })}
+              className="gov-card p-4 border-l-4 border-l-emerald-600 bg-emerald-50/30 cursor-pointer hover:shadow-md hover:border-emerald-600 transition-all group select-none ring-2 ring-transparent hover:ring-emerald-300"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">Government Officers</span>
+                <ArrowRight className="w-4 h-4 text-emerald-500 group-hover:text-emerald-800 group-hover:translate-x-0.5 transition-all" />
+              </div>
               <p className="text-3xl font-black text-emerald-900 font-mono mt-1">{totals.employees}</p>
-              <span className="text-[11px] text-emerald-600 mt-0.5 block">Across {totals.departments} departments</span>
+              <div className="flex items-center justify-between text-[11px] text-emerald-700 mt-1">
+                <span>Across {totals.departments} departments</span>
+                <span className="font-bold text-[10px] group-hover:underline">View Officers →</span>
+              </div>
             </div>
 
-            <div className="gov-card p-4 border-l-4 border-l-red-600 bg-red-50/30">
-              <span className="text-xs font-bold text-red-700 uppercase tracking-wider block">Urgent & Escalated</span>
+            <div 
+              onClick={() => {
+                setStatusFilter('Escalated');
+                setSearchParams({ tab: 'complaints' });
+              }}
+              className="gov-card p-4 border-l-4 border-l-red-600 bg-red-50/30 cursor-pointer hover:shadow-md hover:border-red-600 transition-all group select-none ring-2 ring-transparent hover:ring-red-300"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-red-700 uppercase tracking-wider block">Urgent & Escalated</span>
+                <ArrowRight className="w-4 h-4 text-red-500 group-hover:text-red-800 group-hover:translate-x-0.5 transition-all" />
+              </div>
               <p className="text-3xl font-black text-red-900 font-mono mt-1">{totals.escalated}</p>
-              <span className="text-[11px] text-red-600 mt-0.5 block">Needs immediate attention</span>
+              <div className="flex items-center justify-between text-[11px] text-red-700 mt-1">
+                <span>Needs immediate attention</span>
+                <span className="font-bold text-[10px] group-hover:underline">Inspect Urgent →</span>
+              </div>
             </div>
           </div>
 
@@ -936,13 +1401,13 @@ export default function AdminDashboard() {
                 Total: {displayedComplaints.length} Records
               </span>
               <button
-                onClick={handleRefreshAndSync}
-                disabled={isSyncing}
+                onClick={handleRefreshData}
+                disabled={isRefreshing}
                 className="gov-btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 font-bold"
-                title="Deep synchronize platform records and unstick pipelines"
+                title="Refresh complaints directory"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-amber-500' : ''}`} />
-                <span>{isSyncing ? `Syncing (${syncCountdown}s)...` : 'Refresh Data'}</span>
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-amber-500' : ''}`} />
+                <span>{isRefreshing ? `Refreshing (${refreshCountdown || 3}s)...` : 'Refresh Data'}</span>
               </button>
             </div>
           </div>
@@ -950,7 +1415,7 @@ export default function AdminDashboard() {
           {/* Quick Status Filter Pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
             <button
-              onClick={() => setStatusFilter('All')}
+              onClick={() => handleStatusFilterChange('All')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
                 statusFilter === 'All'
                   ? 'bg-[#0b2545] text-white shadow-sm'
@@ -962,7 +1427,7 @@ export default function AdminDashboard() {
             {statusCategories.map(({ label }) => (
               <button
                 key={label}
-                onClick={() => setStatusFilter(label)}
+                onClick={() => handleStatusFilterChange(label)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
                   statusFilter === label
                     ? 'bg-[#0b2545] text-white shadow-sm ring-2 ring-[#0b2545]'
@@ -978,12 +1443,12 @@ export default function AdminDashboard() {
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Search ID or Keyword</label>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Search ID or Citizen Email / Keyword</label>
                 <div className="relative">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                   <input
                     type="text"
-                    placeholder="e.g. JNS-2026-000001"
+                    placeholder="e.g. citizen@gmail.com, JNS-2026-..."
                     value={searchFilter}
                     onChange={(e) => setSearchFilter(e.target.value)}
                     className="gov-input pl-9 text-xs py-2"
@@ -995,7 +1460,7 @@ export default function AdminDashboard() {
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">Department</label>
                 <select
                   value={deptFilter}
-                  onChange={(e) => setDeptFilter(e.target.value)}
+                  onChange={(e) => handleDeptFilterChange(e.target.value)}
                   className="gov-select text-xs py-2"
                 >
                   <option value="All">All Departments</option>
@@ -1012,7 +1477,7 @@ export default function AdminDashboard() {
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">Priority / Urgency</label>
                 <select
                   value={urgencyFilter}
-                  onChange={(e) => setUrgencyFilter(e.target.value)}
+                  onChange={(e) => handleUrgencyFilterChange(e.target.value)}
                   className="gov-select text-xs py-2"
                 >
                   <option value="All">All Priorities</option>
@@ -1026,20 +1491,15 @@ export default function AdminDashboard() {
               <div className="flex items-end gap-2">
                 <button
                   type="submit"
-                  className="gov-btn-primary flex-1 text-xs py-2"
+                  className="gov-btn-primary flex-1 text-xs py-2 font-bold"
                 >
                   Search Records
                 </button>
                 {(searchFilter || deptFilter !== 'All' || statusFilter !== 'All' || urgencyFilter !== 'All') && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setSearchFilter('');
-                      setDeptFilter('All');
-                      setStatusFilter('All');
-                      setUrgencyFilter('All');
-                    }}
-                    className="gov-btn-secondary text-xs py-2 px-3 text-slate-600"
+                    onClick={handleResetFilters}
+                    className="gov-btn-secondary text-xs py-2 px-3 text-slate-600 font-bold"
                     title="Clear filters"
                   >
                     Reset
@@ -1074,8 +1534,22 @@ export default function AdminDashboard() {
                     </tr>
                   ) : displayedComplaints.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-xs text-slate-500">
-                        No complaints found matching your filter criteria.
+                      <td colSpan={7} className="py-12 text-center text-xs text-slate-500 space-y-2">
+                        <p className="font-semibold text-slate-700">
+                          {searchFilter 
+                            ? `No grievances found matching "${searchFilter}".` 
+                            : 'No complaints found matching your filter criteria.'}
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          {searchFilter ? 'This citizen or search keyword does not have matching grievance records under the current filter.' : 'Try adjusting your status or department filter.'}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleResetFilters}
+                          className="gov-btn-secondary text-xs py-1.5 px-3.5 mt-2 font-bold inline-flex items-center gap-1.5"
+                        >
+                          <span>View All Complaints</span>
+                        </button>
                       </td>
                     </tr>
                   ) : (
@@ -1130,6 +1604,218 @@ export default function AdminDashboard() {
       )}
 
       {/* ───────────────────────────────────────────────────────────────────────
+          VIEW: REGISTERED CITIZENS DIRECTORY (?tab=citizens)
+      ──────────────────────────────────────────────────────────────────────── */}
+      {activeTab === 'citizens' && (
+        <div className="space-y-5 animate-in fade-in duration-150">
+          
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2 py-0.5 rounded bg-blue-700 text-white text-[10px] font-bold font-mono">
+                  CITIZEN REGISTRY
+                </span>
+                <span className="text-xs text-slate-500 font-semibold">Government of India • CPGRAMS</span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900">
+                Registered Citizens Directory
+              </h1>
+              <p className="text-xs text-slate-500">
+                Active citizen accounts authorized to lodge grievances, receive status updates, and verify resolution proof
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={handleRefreshData}
+                disabled={isRefreshing || loadingCitizens}
+                className="gov-btn-secondary text-xs py-2 px-3 flex items-center gap-1.5 font-bold"
+                title="Refresh citizen directory"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing || loadingCitizens ? 'animate-spin text-blue-600' : ''}`} />
+                <span>{isRefreshing ? `Refreshing (${refreshCountdown || 3}s)...` : 'Refresh List'}</span>
+              </button>
+              <button
+                onClick={() => setSearchParams({ tab: 'complaints' })}
+                className="gov-btn-primary bg-[#0b2545] text-xs py-2 px-3.5 font-bold flex items-center gap-1.5"
+              >
+                <ClipboardList className="w-3.5 h-3.5 text-amber-400" />
+                <span>View All Complaints</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Search & Filter Bar */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
+            <div className="relative w-full sm:w-80">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                value={citizenSearch}
+                onChange={(e) => setCitizenSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && fetchCitizens()}
+                placeholder="Search citizen by name, email, or mobile..."
+                className="gov-input pl-9 text-xs py-2 w-full"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <span className="text-xs text-slate-500 font-medium whitespace-nowrap">Status:</span>
+              <select
+                value={citizenStatusFilter}
+                onChange={(e) => setCitizenStatusFilter(e.target.value)}
+                className="gov-select text-xs py-1.5 px-3 w-auto"
+              >
+                <option value="All">All Statuses</option>
+                <option value="Active">Active</option>
+                <option value="Disabled">Disabled</option>
+              </select>
+
+              <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 whitespace-nowrap">
+                {citizens.length} Citizens
+              </span>
+            </div>
+          </div>
+
+          {/* Citizens Data Table */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[10px] font-bold">
+                    <th className="py-3 px-4">Citizen Profile</th>
+                    <th className="py-3 px-4">Email Address</th>
+                    <th className="py-3 px-4">Mobile Number</th>
+                    <th className="py-3 px-4">Registered Date</th>
+                    <th className="py-3 px-4 text-center">Complaints Filed</th>
+                    <th className="py-3 px-4 text-center">Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {loadingCitizens ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-400">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-600" />
+                        <span>Loading citizen accounts...</span>
+                      </td>
+                    </tr>
+                  ) : citizens.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-400">
+                        No registered citizens found matching filter.
+                      </td>
+                    </tr>
+                  ) : (
+                    citizens.map((citizen) => {
+                      const citizenComplaintsCount = allComplaints.filter(c => 
+                        c.citizenId === citizen._id || 
+                        c.citizenDetails?.email?.toLowerCase() === citizen.email?.toLowerCase()
+                      ).length;
+
+                      return (
+                        <tr key={citizen._id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-full bg-[#0b2545] text-amber-300 font-black flex items-center justify-center text-xs shrink-0 shadow-xs">
+                                {citizen.name ? citizen.name.charAt(0).toUpperCase() : 'C'}
+                              </div>
+                              <div>
+                                <span className="font-bold text-slate-900 block leading-tight">
+                                  {citizen.name || 'Citizen'}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  ID: {citizen._id ? citizen._id.slice(-6).toUpperCase() : 'CITIZEN'}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-800">
+                              <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <span className="font-semibold">{citizen.email}</span>
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-700">
+                              <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <span>{citizen.phone || '—'}</span>
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-4 text-slate-600 font-mono text-[11px]">
+                            {citizen.createdAt ? new Date(citizen.createdAt).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric'
+                            }) : '—'}
+                          </td>
+
+                          <td className="py-3 px-4 text-center">
+                            <span className="inline-block px-2.5 py-0.5 rounded-full font-bold font-mono text-xs bg-blue-50 text-blue-700 border border-blue-200">
+                              {citizenComplaintsCount}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-4 text-center">
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              citizen.status === 'Active'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-red-50 text-red-700 border border-red-200'
+                            }`}>
+                              {citizen.status || 'Active'}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSearchFilter(citizen.email);
+                                  setStatusFilter('All');
+                                  setDeptFilter('All');
+                                  setUrgencyFilter('All');
+                                  setSearchParams({ tab: 'complaints', search: citizen.email, status: 'All' });
+                                  fetchComplaints({ search: citizen.email, status: 'All', department: 'All', urgency: 'All' });
+                                }}
+                                className="px-2.5 py-1 rounded bg-[#0b2545] hover:bg-[#163b6b] text-white text-[11px] font-semibold transition-colors flex items-center gap-1 shadow-sm"
+                                title={`View grievances filed by ${citizen.name || citizen.email}`}
+                              >
+                                <Eye className="w-3 h-3 text-amber-400" />
+                                <span>Grievances</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={statusUpdatingId === citizen._id}
+                                onClick={() => handleToggleCitizenStatus(citizen)}
+                                className={`px-2 py-1 rounded border text-[11px] font-semibold transition-colors ${
+                                  citizen.status === 'Active'
+                                    ? 'border-red-200 text-red-700 hover:bg-red-50'
+                                    : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+                                }`}
+                                title={citizen.status === 'Active' ? 'Disable this account' : 'Activate this account'}
+                              >
+                                {statusUpdatingId === citizen._id ? 'Updating...' : citizen.status === 'Active' ? 'Disable' : 'Enable'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────────────────
           VIEW 3: OFFICER DIRECTORY (?tab=employees)
       ──────────────────────────────────────────────────────────────────────── */}
       {activeTab === 'employees' && (
@@ -1138,8 +1824,8 @@ export default function AdminDashboard() {
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="px-2 py-0.5 rounded bg-blue-700 text-white text-[10px] font-bold font-mono">
-                  AUTHORIZED PERSONNEL
+                <span className="px-2 py-0.5 rounded bg-[#0b2545] text-white text-[10px] font-bold font-mono">
+                  OFFICER REGISTRY
                 </span>
                 <span className="text-xs text-slate-500 font-semibold">Government of India • DARPG</span>
               </div>
@@ -1147,23 +1833,26 @@ export default function AdminDashboard() {
                 Department Officers Directory
               </h1>
               <p className="text-xs text-slate-500">
-                Government personnel assigned to resolve citizen grievances across public departments
+                Authorized public grievance officers across participating central and municipal departments
               </p>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-mono font-bold text-[#0b2545] bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg">
+                Total: {filteredEmployees.length} Officers
+              </span>
               <button
-                onClick={handleRefreshAndSync}
-                disabled={isSyncing}
-                className="gov-btn-secondary text-xs py-2 px-3 flex items-center gap-1.5 font-bold"
-                title="Deep synchronize platform records and unstick pipelines"
+                onClick={handleRefreshData}
+                disabled={isRefreshing}
+                className="gov-btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 font-bold"
+                title="Refresh officer directory"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-amber-500' : ''}`} />
-                <span>{isSyncing ? `Syncing (${syncCountdown}s)...` : 'Refresh Data'}</span>
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-amber-500' : ''}`} />
+                <span>{isRefreshing ? `Refreshing (${refreshCountdown || 3}s)...` : 'Refresh Directory'}</span>
               </button>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="gov-btn-primary bg-[#0b2545] text-white text-xs py-2 px-3.5 self-start sm:self-auto flex items-center gap-1.5 font-bold"
+                className="gov-btn-primary bg-[#0b2545] text-white text-xs py-1.5 px-3.5 self-start sm:self-auto flex items-center gap-1.5 font-bold"
               >
                 <UserPlus className="w-3.5 h-3.5 text-amber-400" />
                 <span>+ Add Officer</span>
@@ -1172,32 +1861,44 @@ export default function AdminDashboard() {
           </div>
 
           {/* Search & Department Filter */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center gap-3">
+            <div className="relative flex-1 w-full">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
-                placeholder="Search officer by name, email, or employee ID..."
+                placeholder="Search officer by name, email, employee ID, phone, or title..."
                 value={empSearch}
                 onChange={(e) => setEmpSearch(e.target.value)}
-                className="gov-input pl-9 text-xs py-2"
+                className="gov-input pl-9 text-xs py-2 w-full"
               />
             </div>
             <div className="w-full sm:w-64">
               <select
                 value={empDeptFilter}
                 onChange={(e) => setEmpDeptFilter(e.target.value)}
-                className="gov-select text-xs py-2"
+                className="gov-select text-xs py-2 w-full"
               >
                 <option value="All">All Departments</option>
                 <option value="railway">Indian Railways</option>
-                <option value="water_supply">Water Supply & Drainage</option>
+                <option value="water_supply">Water Supply & Sewerage Board</option>
                 <option value="municipality">Municipal Corporation</option>
                 <option value="roads_infra">Roads & Bridges (PWD)</option>
                 <option value="electricity">Electricity Board (DISCOM)</option>
                 <option value="health_sanitation">Public Health & Sanitation</option>
               </select>
             </div>
+            {(empSearch || empDeptFilter !== 'All') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEmpSearch('');
+                  setEmpDeptFilter('All');
+                }}
+                className="gov-btn-secondary text-xs py-2 px-3 text-slate-600 font-bold whitespace-nowrap"
+              >
+                Reset
+              </button>
+            )}
           </div>
 
           {/* Officers Table */}
@@ -1206,52 +1907,121 @@ export default function AdminDashboard() {
               <table className="gov-table w-full table-fixed">
                 <thead>
                   <tr>
-                    <th className="w-[30%]">Officer Name & Contact</th>
-                    <th className="w-[18%]">Official ID</th>
-                    <th className="w-[24%]">Assigned Department</th>
-                    <th className="w-[18%]">Designation</th>
-                    <th className="w-[10%] text-center">Status</th>
+                    <th className="w-[28%]">Officer Name & Contact</th>
+                    <th className="w-[14%]">Official ID</th>
+                    <th className="w-[18%]">Assigned Department</th>
+                    <th className="w-[15%]">Designation</th>
+                    <th className="w-[7%] text-center">Status</th>
+                    <th className="w-[18%] text-right pr-4">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredEmployees.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-12 text-center text-xs text-slate-400">
+                      <td colSpan={6} className="py-12 text-center text-xs text-slate-500">
                         No officers found matching your search.
                       </td>
                     </tr>
                   ) : (
-                    filteredEmployees.map(emp => (
-                      <tr key={emp._id} className="hover:bg-slate-50 transition-colors">
-                        <td className="w-[30%] overflow-hidden">
-                          <div>
-                            <p className="font-bold text-slate-900 text-xs truncate">{emp.name}</p>
-                            <p className="text-[11px] text-slate-500 font-mono truncate">{emp.email}</p>
-                            {emp.phone && <p className="text-[10px] text-slate-400 font-mono truncate">{emp.phone}</p>}
-                          </div>
-                        </td>
-                        <td className="w-[18%]">
-                          <span className="font-mono text-xs text-[#0b2545] font-bold bg-slate-100 px-2 py-0.5 rounded border border-slate-200 whitespace-nowrap inline-block">
-                            {emp.employeeId || '—'}
-                          </span>
-                        </td>
-                        <td className="w-[24%] overflow-hidden">
-                          <span className="text-xs font-semibold text-slate-800 truncate block">{emp.department?.name || '—'}</span>
-                        </td>
-                        <td className="w-[18%] overflow-hidden">
-                          <span className="text-xs text-slate-600 truncate block">{emp.designation || 'Grievance Officer'}</span>
-                        </td>
-                        <td className="w-[10%] text-center">
-                          <span className={`inline-block px-2.5 py-0.5 rounded text-[11px] font-bold whitespace-nowrap ${
-                            emp.status === 'Active'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                              : 'bg-red-100 text-red-700 border border-red-300'
-                          }`}>
-                            {emp.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
+                    filteredEmployees.map(emp => {
+                      const nameParts = (emp.name || 'Officer').trim().split(/\s+/);
+                      const initials = nameParts.length === 1 
+                        ? nameParts[0].slice(0, 2).toUpperCase() 
+                        : (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase();
+
+                      return (
+                        <tr key={emp._id} className="hover:bg-slate-50 transition-colors">
+                          <td className="w-[28%] overflow-hidden py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-[#0b2545] text-amber-300 flex items-center justify-center font-bold text-xs uppercase shrink-0 border border-amber-400/30 shadow-sm">
+                                {initials}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-bold text-slate-900 text-xs truncate">{emp.name}</p>
+                                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-mono truncate mt-0.5">
+                                  <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                                  <span className="truncate">{emp.email}</span>
+                                </div>
+                                {emp.phone && (
+                                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono truncate mt-0.5">
+                                    <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                                    <span>{emp.phone}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="w-[14%]">
+                            <span className="font-mono text-xs text-[#0b2545] font-bold bg-slate-100 px-2.5 py-1 rounded border border-slate-200 whitespace-nowrap inline-block shadow-xs">
+                              {emp.employeeId || '—'}
+                            </span>
+                          </td>
+                          <td className="w-[18%] overflow-hidden">
+                            <span className="inline-block text-xs font-semibold text-slate-800 truncate" title={emp.department?.name}>
+                              {emp.department?.name || '—'}
+                            </span>
+                          </td>
+                          <td className="w-[15%] overflow-hidden">
+                            <span className="text-xs text-slate-600 truncate block font-medium" title={emp.designation}>
+                              {emp.designation || 'Grievance Officer'}
+                            </span>
+                          </td>
+                          <td className="w-[7%] text-center">
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap ${
+                              emp.status === 'Active'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
+                                : 'bg-red-50 text-red-700 border border-red-300'
+                            }`}>
+                              {emp.status || 'Active'}
+                            </span>
+                          </td>
+                          <td className="w-[18%] text-right pr-4 whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const deptId = emp.department?.id || 'All';
+                                  setDeptFilter(deptId);
+                                  setStatusFilter('All');
+                                  setSearchFilter('');
+                                  setSearchParams({ tab: 'complaints', department: deptId, status: 'All' });
+                                  fetchComplaints({ department: deptId, status: 'All', search: '' });
+                                }}
+                                className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] font-bold text-[#0b2545] bg-slate-50 hover:bg-[#0b2545] hover:text-white border border-slate-300 transition-all shadow-xs"
+                                title="View complaints assigned to this officer's department"
+                              >
+                                <Eye className="w-3 h-3 text-amber-500" />
+                                <span>Cases</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setEditingOfficer(emp)}
+                                className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-all shadow-xs"
+                                title="Edit officer designation, department, or temporary password"
+                              >
+                                <Edit2 className="w-3 h-3 text-blue-600" />
+                                <span>Edit</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={officerStatusUpdatingId === emp._id}
+                                onClick={() => handleToggleEmployeeStatus(emp)}
+                                className={`px-2 py-1 rounded border text-[11px] font-bold transition-colors shadow-xs ${
+                                  emp.status === 'Active'
+                                    ? 'border-red-200 text-red-700 hover:bg-red-50 bg-white'
+                                    : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50 bg-white'
+                                }`}
+                                title={emp.status === 'Active' ? 'Disable officer account' : 'Activate officer account'}
+                              >
+                                {officerStatusUpdatingId === emp._id ? '...' : emp.status === 'Active' ? 'Disable' : 'Enable'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

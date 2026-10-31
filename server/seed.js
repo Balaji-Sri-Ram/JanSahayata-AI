@@ -121,17 +121,17 @@ const seedDatabase = async () => {
     ]);
     console.log(`[Seed] Created ${employees.length} Department Officers.`);
 
-    // 3. Seed Verified Citizen Account
+    // 3. Seed Citizen Account
     const citizenPasswordHash = await User.hashPassword('Citizen@2026!');
     const citizen = await User.create({
       name: 'Ravi Teja Sharma',
-      email: 'citizen@jansahayata.gov.in',
+      email: 'citizen@gmail.com',
       phone: '+91 98765 43210',
       passwordHash: citizenPasswordHash,
       role: 'CITIZEN',
       status: 'Active'
     });
-    console.log(`[Seed] Created Verified Citizen: ${citizen.email}`);
+    console.log(`[Seed] Created Citizen: ${citizen.email}`);
 
     // 4. Seed Realistic Grievance Complaints
     const complaintsData = [
@@ -582,7 +582,7 @@ const seedDatabase = async () => {
     console.log('   Municipal Officer: officer.muni@jansahayata.gov.in / Officer@2026!');
     console.log('   Roads (PWD) Officer: officer.roads@jansahayata.gov.in / Officer@2026!');
     console.log('3. CITIZEN:');
-    console.log('   Email: citizen@jansahayata.gov.in / Citizen@2026!');
+    console.log('   Email: citizen@gmail.com / Citizen@2026!');
     console.log('========================================\n');
 
     process.exit(0);

@@ -66,6 +66,12 @@ export const connectDB = async () => {
           { $set: { name: 'Allada Pavan' } }
         );
       }
+
+      // 6. Update seeded citizen account from @jansahayata.gov.in to citizen@gmail.com
+      await User.updateMany(
+        { email: { $in: ['citizen@jansahayata.gov.in', 'citizen@janashayata.gov.in'] } },
+        { $set: { email: 'citizen@gmail.com' } }
+      );
     } catch (e) {
       console.warn('[Database Sync Warning]', e.message);
     }

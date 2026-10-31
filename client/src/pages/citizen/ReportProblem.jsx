@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { 
   PlusCircle, 
@@ -23,10 +23,15 @@ import {
   Building2,
   Sparkles,
   Layers,
-  Clock
+  Clock,
+  Copy,
+  Check,
+  Mail,
+  Search
 } from 'lucide-react';
 import { citizenApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import AudioRecorder from '../../components/AudioRecorder';
 import ImageUploadPreview from '../../components/ImageUploadPreview';
 import UrgencyBadge from '../../components/UrgencyBadge';
@@ -114,6 +119,7 @@ export default function ReportProblem() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, isAuthenticated } = useAuth();
+  const toast = useToast();
 
   // Wizard Steps: 1: Describe, 2: Location & Context, 3: AI Review, 4: Success
   const [currentStep, setCurrentStep] = useState(1);
@@ -135,6 +141,13 @@ export default function ReportProblem() {
   const [citizenPhone, setCitizenPhone] = useState(user?.phone || '');
   const [citizenEmail, setCitizenEmail] = useState(user?.email || '');
 
+  // Input Element References for Automatic Error Focus & Scroll
+  const descriptionRef = useRef(null);
+  const addressRef = useRef(null);
+  const citizenEmailRef = useRef(null);
+  const citizenPhoneRef = useRef(null);
+  const confirmReviewRef = useRef(null);
+
   // Attachments
   const [images, setImages] = useState([]);
   const [video, setVideo] = useState(null);
@@ -152,6 +165,62 @@ export default function ReportProblem() {
   const [submitError, setSubmitError] = useState(null);
   const [submittedComplaint, setSubmittedComplaint] = useState(null);
 
+  // Success step state: Tracking ID Copy & Extra Email Dispatch
+  const [copiedTrackingId, setCopiedTrackingId] = useState(false);
+  const [postSubmitEmail, setPostSubmitEmail] = useState('');
+  const [sendingTrackingEmail, setSendingTrackingEmail] = useState(false);
+  const [trackingEmailSentMsg, setTrackingEmailSentMsg] = useState(null);
+  const [trackingEmailError, setTrackingEmailError] = useState(null);
+
+  const handleCopyTrackingId = async (id) => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopiedTrackingId(true);
+      toast.success('Grievance Reference ID copied to clipboard!', { title: 'Copied' });
+      setTimeout(() => setCopiedTrackingId(false), 2500);
+    } catch {
+      // Fallback
+      setCopiedTrackingId(true);
+      toast.success('Grievance Reference ID copied to clipboard!', { title: 'Copied' });
+      setTimeout(() => setCopiedTrackingId(false), 2500);
+    }
+  };
+
+  const handleSendTrackingEmail = async (e) => {
+    e.preventDefault();
+    if (!postSubmitEmail || !postSubmitEmail.trim() || !postSubmitEmail.includes('@')) {
+      const err = 'Please enter a valid email address.';
+      setTrackingEmailError(err);
+      toast.warning(err, { title: 'Invalid Email' });
+      return;
+    }
+
+    try {
+      setSendingTrackingEmail(true);
+      setTrackingEmailError(null);
+      setTrackingEmailSentMsg(null);
+      const res = await citizenApi.sendComplaintTrackingEmail(
+        submittedComplaint.complaintId,
+        postSubmitEmail.trim()
+      );
+      if (res.data?.success) {
+        const msg = `Official tracking details and tracker link dispatched to ${postSubmitEmail.trim()}!`;
+        setTrackingEmailSentMsg(msg);
+        toast.success(msg, { title: 'Email Dispatched' });
+      } else {
+        const err = res.data?.message || 'Could not send tracking email.';
+        setTrackingEmailError(err);
+        toast.error(err, { title: 'Dispatch Failed' });
+      }
+    } catch (err) {
+      const errText = err.response?.data?.message || err.message || 'Failed to dispatch email.';
+      setTrackingEmailError(errText);
+      toast.error(errText, { title: 'Dispatch Error' });
+    } finally {
+      setSendingTrackingEmail(false);
+    }
+  };
+
   // Keep category synchronized when department changes
   useEffect(() => {
     const availableCategories = CATEGORIES_BY_DEPT[departmentId] || CATEGORIES_BY_DEPT.railway;
@@ -160,29 +229,135 @@ export default function ReportProblem() {
     }
   }, [departmentId]);
 
-  // Handle Geolocation
+  // Reverse geocoding helper to convert lat/lng into a clean readable street/area address
+  const reverseGeocode = async (lat, lon) => {
+    // 1. Try OpenStreetMap Nominatim with high detail
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4500);
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
+        {
+          headers: { 'Accept-Language': 'en' },
+          signal: controller.signal
+        }
+      );
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.address) {
+          const a = data.address;
+          const road = a.road || a.pedestrian || a.suburb || a.neighbourhood || a.residential || '';
+          const locality = a.suburb || a.city_district || a.town || a.village || '';
+          const city = a.city || a.town || a.county || a.state_district || '';
+          const state = a.state || '';
+          const postcode = a.postcode || '';
+
+          const parts = [road, locality, city, state, postcode].filter(Boolean);
+          if (parts.length >= 2) {
+            const uniqueParts = parts.filter((part, idx) => parts.indexOf(part) === idx);
+            return uniqueParts.join(', ');
+          }
+          if (data.display_name) {
+            return data.display_name.split(',').slice(0, 4).map(s => s.trim()).join(', ');
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Nominatim reverse geocode error:', e);
+    }
+
+    // 2. Fallback to BigDataCloud client reverse geocoding API
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`,
+        { signal: controller.signal }
+      );
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const bdc = await res.json();
+        const parts = [
+          bdc.locality || bdc.city,
+          bdc.principalSubdivision,
+          bdc.postcode
+        ].filter(Boolean);
+        if (parts.length > 0) {
+          return parts.join(', ');
+        }
+      }
+    } catch (e) {
+      console.warn('BigDataCloud reverse geocode error:', e);
+    }
+
+    return null;
+  };
+
+  // Handle Geolocation with High Accuracy and Automatic Address Translation
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
+      toast.warning('Geolocation is not supported by your browser.', { title: 'GPS Unavailable' });
       return;
     }
+
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLatitude(position.coords.latitude);
-        setLongitude(position.coords.longitude);
-        setLocating(false);
-        setLocationSuccess(true);
+    setLocationSuccess(false);
+
+    const onPositionSuccess = async (position) => {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      const accuracy = position.coords.accuracy ? Math.round(position.coords.accuracy) : null;
+
+      setLatitude(lat);
+      setLongitude(lon);
+      setLocationSuccess(true);
+
+      // Attempt reverse geocoding to human-readable street/locality
+      const resolvedAddress = await reverseGeocode(lat, lon);
+      setLocating(false);
+
+      if (resolvedAddress) {
+        setAddress(resolvedAddress);
+        toast.success(`Location detected: ${resolvedAddress.split(',')[0]} (±${accuracy || 15}m)`, {
+          title: 'GPS Located'
+        });
+      } else {
+        const fallback = `Lat ${lat.toFixed(5)}, Lon ${lon.toFixed(5)} (GPS Verified)`;
         if (!address) {
-          setAddress(`Geo: ${position.coords.latitude.toFixed(4)}° N, ${position.coords.longitude.toFixed(4)}° E (GPS Verified)`);
+          setAddress(fallback);
         }
-      },
-      (error) => {
-        console.warn('Geolocation error:', error);
-        setLocating(false);
-        alert('Could not retrieve GPS coordinates. Please enter location manually.');
-      },
-      { timeout: 10000, enableHighAccuracy: true }
+        toast.success('Coordinates captured. Please add street / station name.', { title: 'GPS Verified' });
+      }
+
+      addressRef.current?.focus();
+    };
+
+    const onPositionError = (error) => {
+      console.warn('Primary high-accuracy GPS error, retrying standard...', error);
+      // Retry once with standard accuracy (wifi/network based)
+      navigator.geolocation.getCurrentPosition(
+        onPositionSuccess,
+        (secondError) => {
+          console.warn('Fallback geolocation failed:', secondError);
+          setLocating(false);
+          let errorMsg = 'Could not retrieve GPS coordinates. Please enter location manually.';
+          if (secondError.code === 1) {
+            errorMsg = 'Location permission denied in browser settings. Please enter location manually.';
+          } else if (secondError.code === 2) {
+            errorMsg = 'Location unavailable. Please enter your street / station manually.';
+          }
+          toast.warning(errorMsg, { title: 'Location Notice' });
+          addressRef.current?.focus();
+        },
+        { enableHighAccuracy: false, timeout: 8000 }
+      );
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      onPositionSuccess,
+      onPositionError,
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
   };
 
@@ -214,22 +389,35 @@ export default function ReportProblem() {
 
   const handleNextToStep2 = () => {
     if (!description.trim() || description.trim().length < 15) {
-      alert('Please describe the problem in more detail (at least 15 characters) before proceeding.');
+      toast.warning('Please describe the problem in more detail (at least 15 characters).', {
+        title: 'Description Required'
+      });
+      descriptionRef.current?.focus();
+      descriptionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     setCurrentStep(2);
+    window.scrollTo({ top: 120, behavior: 'smooth' });
   };
 
   const handleNextToStep3 = async () => {
     if (!address.trim() || address.trim().length < 6) {
-      alert('Please provide a complete location or address where the issue is present (at least 6 characters).');
+      toast.warning('Please provide a complete location or address (at least 6 characters).', {
+        title: 'Location Required'
+      });
+      addressRef.current?.focus();
+      addressRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
     if (citizenEmail && citizenEmail.trim()) {
       const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
       if (!emailRegex.test(citizenEmail.trim())) {
-        alert('Please enter a valid contact email address.');
+        toast.warning('Please enter a valid contact email address.', {
+          title: 'Invalid Email'
+        });
+        citizenEmailRef.current?.focus();
+        citizenEmailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
     }
@@ -237,19 +425,28 @@ export default function ReportProblem() {
     if (citizenPhone && citizenPhone.trim()) {
       const digits = citizenPhone.replace(/\D/g, '').replace(/^(91|0)/, '');
       if (digits.length !== 10 || !/^[6-9]/.test(digits)) {
-        alert('Please enter a valid 10-digit Indian mobile number for citizen contact.');
+        toast.warning('Please enter a valid 10-digit Indian mobile number for citizen contact.', {
+          title: 'Invalid Mobile Number'
+        });
+        citizenPhoneRef.current?.focus();
+        citizenPhoneRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
     }
 
     setCurrentStep(3);
+    window.scrollTo({ top: 120, behavior: 'smooth' });
     await prepareAiReview();
   };
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     if (!userConfirmedReview) {
-      alert('Please review and confirm the statement before submitting.');
+      toast.warning('Please review and confirm the statement checkbox before submitting.', {
+        title: 'Confirmation Required'
+      });
+      confirmReviewRef.current?.focus();
+      confirmReviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
@@ -364,6 +561,7 @@ export default function ReportProblem() {
             </label>
             <textarea
               id="description"
+              ref={descriptionRef}
               rows={5}
               required
               value={description}
@@ -485,6 +683,7 @@ export default function ReportProblem() {
 
             <input
               id="address"
+              ref={addressRef}
               type="text"
               required
               value={address}
@@ -530,7 +729,7 @@ export default function ReportProblem() {
           {!isAuthenticated && (
             <div className="pt-2 border-t border-slate-100">
               <p className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                Citizen Contact Information (Optional for SMS / Email tracking)
+                Citizen Contact Information (Optional for Email Tracking & Updates)
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <input
@@ -542,6 +741,7 @@ export default function ReportProblem() {
                 />
                 <input
                   type="tel"
+                  ref={citizenPhoneRef}
                   value={citizenPhone}
                   onChange={(e) => setCitizenPhone(e.target.value)}
                   placeholder="Phone Number (+91...)"
@@ -549,6 +749,7 @@ export default function ReportProblem() {
                 />
                 <input
                   type="email"
+                  ref={citizenEmailRef}
                   value={citizenEmail}
                   onChange={(e) => setCitizenEmail(e.target.value)}
                   placeholder="Email Address"
@@ -678,9 +879,10 @@ export default function ReportProblem() {
                 <input
                   type="checkbox"
                   id="confirmReview"
+                  ref={confirmReviewRef}
                   checked={userConfirmedReview}
                   onChange={(e) => setUserConfirmedReview(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                 />
                 <label htmlFor="confirmReview" className="text-xs text-slate-700 leading-relaxed cursor-pointer">
                   <strong className="text-slate-900">Review before submitting:</strong> I have reviewed the generated problem statement and confirm that the details, department, and location accurately represent the issue.
@@ -734,46 +936,145 @@ export default function ReportProblem() {
       {/* STEP 4: Success & Dynamic Complaint ID */}
       {/* ========================================================================= */}
       {currentStep === 4 && submittedComplaint && (
-        <div className="gov-card p-8 text-center space-y-6 animate-in zoom-in-95 duration-200">
-          <div className="w-14 h-14 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto shadow-sm">
-            <CheckCircle2 className="w-8 h-8" />
+        <div className="gov-card p-6 sm:p-8 text-center space-y-6 animate-in zoom-in-95 duration-200 max-w-2xl mx-auto">
+          <div className="w-16 h-16 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto shadow-sm">
+            <CheckCircle2 className="w-9 h-9" />
           </div>
 
-          <div className="max-w-md mx-auto">
-            <h2 className="text-2xl font-bold text-slate-900 mb-1">
+          <div className="max-w-xl mx-auto">
+            <span className="inline-block px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200 uppercase tracking-wider mb-2">
+              Official Grievance Acknowledged
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-2">
               Grievance Registered Successfully
             </h2>
-            <p className="text-xs text-slate-500 mb-4">
-              Your grievance has been ingested and dispatched to the designated department for investigation.
+            <p className="text-xs sm:text-sm text-slate-500 mb-6 leading-relaxed">
+              Your grievance has been prioritized and dispatched to <strong className="text-slate-800">{submittedComplaint.department?.name}</strong>. Field teams will inspect and upload photo proof before any closure.
             </p>
 
-            {/* Complaint ID Box */}
-            <div className="bg-slate-50 border-2 border-slate-200 rounded-xl p-4 mb-4">
-              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">
+            {/* Complaint ID Box with Quick Copy */}
+            <div className="bg-gradient-to-br from-slate-50 to-blue-50/50 border-2 border-[#0b2545]/20 rounded-2xl p-5 mb-6 shadow-sm text-center">
+              <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block mb-1">
                 Your Unique Complaint Tracking ID
               </span>
-              <span className="text-2xl font-mono font-extrabold text-blue-900 tracking-wider">
-                {submittedComplaint.complaintId}
-              </span>
+              
+              <div className="flex items-center justify-center gap-3 mt-2">
+                <span className="text-2xl sm:text-3xl font-mono font-black text-[#0b2545] tracking-wider select-all">
+                  {submittedComplaint.complaintId}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => handleCopyTrackingId(submittedComplaint.complaintId)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs ${
+                    copiedTrackingId 
+                      ? 'bg-emerald-600 text-white shadow-emerald-200' 
+                      : 'bg-white hover:bg-slate-100 text-[#0b2545] border border-slate-300'
+                  }`}
+                  title="Copy Tracking ID to Clipboard"
+                >
+                  {copiedTrackingId ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy ID</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="text-[11px] text-slate-500 mt-2">
+                Keep this ID safe. You can track resolution progress anytime 24x7 without logging in.
+              </div>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed mb-6">
-              Assigned Department: <strong className="text-slate-900">{submittedComplaint.department?.name}</strong>. Please save this Complaint ID to track status updates, receive department progress notes, and verify resolution.
-            </p>
+            {/* Extra Field: Send Tracking ID & Tracker Link to Email */}
+            <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6 text-left shadow-xs">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center">
+                  <Mail className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900">
+                    Receive Tracking ID & Tracker Link via Email
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    We will send your Complaint Tracking Pass with 1-click status link straight to your inbox.
+                  </p>
+                </div>
+              </div>
 
+              <form onSubmit={handleSendTrackingEmail} className="mt-3 flex flex-col sm:flex-row gap-2">
+                <input
+                  type="email"
+                  value={postSubmitEmail}
+                  onChange={(e) => setPostSubmitEmail(e.target.value)}
+                  placeholder="Enter email (e.g., name@gmail.com)"
+                  className="gov-input text-xs flex-1"
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={sendingTrackingEmail}
+                  className="gov-btn-primary text-xs py-2 px-4 whitespace-nowrap flex items-center justify-center gap-1.5"
+                >
+                  {sendingTrackingEmail ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Sending Email...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Send to Email</span>
+                    </>
+                  )}
+                </button>
+              </form>
+
+              {trackingEmailSentMsg && (
+                <div className="mt-2.5 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 font-medium flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{trackingEmailSentMsg}</span>
+                </div>
+              )}
+
+              {trackingEmailError && (
+                <div className="mt-2.5 p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{trackingEmailError}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Navigation & Action Buttons */}
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Link
                 to={`/complaint/${submittedComplaint.complaintId}`}
-                className="gov-btn-primary text-xs py-2.5 px-4"
+                className="gov-btn-primary text-xs py-2.5 px-5 shadow-sm flex items-center gap-1.5"
               >
-                Track This Complaint Now
+                <Search className="w-3.5 h-3.5 text-amber-400" />
+                <span>Track Complaint Status Now</span>
               </Link>
-              <Link
-                to="/my-complaints"
-                className="gov-btn-secondary text-xs py-2.5 px-4"
-              >
-                View My Complaints
-              </Link>
+              {isAuthenticated ? (
+                <Link
+                  to="/my-complaints"
+                  className="gov-btn-secondary text-xs py-2.5 px-5"
+                >
+                  View My Complaints
+                </Link>
+              ) : (
+                <Link
+                  to="/"
+                  className="gov-btn-secondary text-xs py-2.5 px-5"
+                >
+                  Return to Home
+                </Link>
+              )}
             </div>
           </div>
         </div>

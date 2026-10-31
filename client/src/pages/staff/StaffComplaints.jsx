@@ -20,6 +20,8 @@ export default function StaffComplaints() {
   const { user } = useAuth();
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshCountdown, setRefreshCountdown] = useState(0);
   const [error, setError] = useState(null);
 
   // Filters
@@ -31,15 +33,41 @@ export default function StaffComplaints() {
     fetchComplaints();
   }, [statusFilter, urgencyFilter]);
 
-  const fetchComplaints = async () => {
+  // Real-time live polling (every 8s)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const params = {};
+      if (statusFilter !== 'All') params.status = statusFilter;
+      if (urgencyFilter !== 'All') params.urgency = urgencyFilter;
+      staffApi.getComplaints(params).then(res => {
+        if (res.data?.success) setComplaints(res.data.data || []);
+      }).catch(() => {});
+    }, 8000);
+
+    return () => clearInterval(timer);
+  }, [statusFilter, urgencyFilter]);
+
+  const fetchComplaints = async (isManual = false) => {
     try {
-      setLoading(true);
+      if (isManual) {
+        setIsRefreshing(true);
+        setRefreshCountdown(3);
+        const timer = setInterval(() => {
+          setRefreshCountdown(prev => (prev > 1 ? prev - 1 : 1));
+        }, 1000);
+        setTimeout(() => clearInterval(timer), 3200);
+      } else {
+        setLoading(true);
+      }
       setError(null);
       const params = {};
       if (statusFilter !== 'All') params.status = statusFilter;
       if (urgencyFilter !== 'All') params.urgency = urgencyFilter;
 
-      const res = await staffApi.getComplaints(params);
+      const [res] = await Promise.all([
+        staffApi.getComplaints(params),
+        isManual ? new Promise(r => setTimeout(r, 3000)) : Promise.resolve()
+      ]);
       if (res.data?.success) {
         setComplaints(res.data.data || []);
       }
@@ -48,6 +76,8 @@ export default function StaffComplaints() {
       setError('Failed to retrieve department complaints.');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
+      setRefreshCountdown(0);
     }
   };
 
@@ -84,13 +114,13 @@ export default function StaffComplaints() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={fetchComplaints}
-            disabled={loading}
+            onClick={() => fetchComplaints(true)}
+            disabled={loading || isRefreshing}
             className="gov-btn-secondary text-xs py-2 px-3"
             title="Refresh"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-blue-600' : loading ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? `Refreshing (${refreshCountdown || 3}s)...` : 'Refresh'}</span>
           </button>
 
           <Link

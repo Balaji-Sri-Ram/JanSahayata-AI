@@ -25,6 +25,8 @@ export default function StaffDashboard() {
   const { user } = useAuth();
   const [statsData, setStatsData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshCountdown, setRefreshCountdown] = useState(0);
   const [error, setError] = useState(null);
   const [showEmailChangeModal, setShowEmailChangeModal] = useState(false);
 
@@ -32,11 +34,34 @@ export default function StaffDashboard() {
     fetchStats();
   }, []);
 
-  const fetchStats = async () => {
+  // Real-time live polling (every 8s)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      staffApi.getDashboardStats().then(res => {
+        if (res.data?.success) setStatsData(res.data.data);
+      }).catch(() => {});
+    }, 8000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const fetchStats = async (isManual = false) => {
     try {
-      setLoading(true);
+      if (isManual) {
+        setIsRefreshing(true);
+        setRefreshCountdown(3);
+        const timer = setInterval(() => {
+          setRefreshCountdown(prev => (prev > 1 ? prev - 1 : 1));
+        }, 1000);
+        setTimeout(() => clearInterval(timer), 3200);
+      } else {
+        setLoading(true);
+      }
       setError(null);
-      const res = await staffApi.getDashboardStats();
+      const [res] = await Promise.all([
+        staffApi.getDashboardStats(),
+        isManual ? new Promise(r => setTimeout(r, 3000)) : Promise.resolve()
+      ]);
       if (res.data?.success) {
         setStatsData(res.data.data);
       }
@@ -45,6 +70,8 @@ export default function StaffDashboard() {
       setError('Could not connect to department statistics API.');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
+      setRefreshCountdown(0);
     }
   };
 
@@ -97,12 +124,12 @@ export default function StaffDashboard() {
           </button>
 
           <button
-            onClick={fetchStats}
-            disabled={loading}
+            onClick={() => fetchStats(true)}
+            disabled={loading || isRefreshing}
             className="gov-btn-secondary bg-white/10 border-white/20 text-white hover:bg-white/20 text-xs py-2 px-3"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh Queue</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing || loading ? 'animate-spin text-amber-300' : ''}`} />
+            <span>{isRefreshing ? `Refreshing (${refreshCountdown || 3}s)...` : 'Refresh Queue'}</span>
           </button>
 
           <Link

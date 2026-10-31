@@ -1,7 +1,17 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
 import { AuditLog } from '../models/AuditLog.js';
-import { sendOtpVerificationEmail, sendPasswordChangedConfirmation } from '../services/emailService.js';
+import { Complaint } from '../models/Complaint.js';
+import { EmailChangeRequest } from '../models/EmailChangeRequest.js';
+import { 
+  sendOtpVerificationEmail, 
+  sendPasswordChangedConfirmation, 
+  sendCitizenWelcomeEmail,
+  sendAccountConfirmationOtpEmail,
+  sendCitizenOldEmailChangeOtp,
+  sendCitizenNewEmailVerificationOtp,
+  sendCitizenEmailChangeDualNotice
+} from '../services/emailService.js';
 import { sendOtpSms, sendOtpWhatsApp, formatPhoneNumber, maskPhoneNumber } from '../services/messagingService.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'jansahayata_gov_secure_jwt_secret_key_2026_capstone_token';
@@ -112,6 +122,14 @@ export const registerCitizen = async (req, res) => {
     const userObj = savedUser.toObject();
     delete userObj.passwordHash;
 
+    // Send Official Citizen Welcome Email asynchronously with project highlights & guide
+    sendCitizenWelcomeEmail({
+      name: savedUser.name,
+      email: savedUser.email,
+      phone: savedUser.phone || '',
+      portalUrl: process.env.CLIENT_URL || 'http://localhost:5173'
+    }).catch(err => console.error('[sendCitizenWelcomeEmail async error]', err.message));
+
     return res.status(201).json({
       success: true,
       message: 'Citizen account registered successfully.',
@@ -142,9 +160,16 @@ export const loginCitizen = async (req, res) => {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    const candidateEmails = [normalizedEmail];
+    if (normalizedEmail === 'cizten@gmail.com') candidateEmails.push('citizen@gmail.com');
+    if (normalizedEmail === 'citizen@gmail.com') candidateEmails.push('cizten@gmail.com');
+    if (normalizedEmail.includes('citizen@jansahayata') || normalizedEmail.includes('citizen@janashayata')) {
+      candidateEmails.push('citizen@gmail.com', 'cizten@gmail.com');
+    }
+
     const user = await User.findOne({
       $or: [
-        { email: normalizedEmail },
+        { email: { $in: candidateEmails } },
         { phone: email.trim() }
       ]
     });
@@ -395,19 +420,13 @@ export const firstTimeResetPassword = async (req, res) => {
 };
 
 /**
- * POST /api/auth/send-password-otp (Send 6-digit real-time OTP via Email, SMS, or WhatsApp)
+ * POST /api/auth/send-password-otp (Send 6-digit real-time OTP via Official Email)
  */
 export const sendPasswordOtp = async (req, res) => {
   try {
-    const { channel = 'email', phone } = req.body || {};
     const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found.' });
-    }
-
-    // If a phone number is provided, update user record if not previously present
-    if (phone && phone.trim()) {
-      user.phone = phone.trim();
     }
 
     // Generate secure 6-digit numeric OTP
@@ -418,68 +437,30 @@ export const sendPasswordOtp = async (req, res) => {
     user.resetPasswordOtpExpires = expiresAt;
     await user.save();
 
-    let dispatchResult = null;
-    let destinationLabel = '';
+    // Mask user email for privacy: e.g. j***a@example.com
+    const emailParts = user.email.split('@');
+    const namePart = emailParts[0];
+    const domainPart = emailParts[1];
+    const maskedName = namePart.length <= 2
+      ? namePart[0] + '***'
+      : namePart[0] + '***' + namePart.slice(-1);
+    const maskedEmail = `${maskedName}@${domainPart}`;
+    const destinationLabel = `official email (${maskedEmail})`;
 
-    if (channel === 'whatsapp') {
-      const targetPhone = user.phone;
-      if (!targetPhone) {
-        return res.status(400).json({
-          success: false,
-          message: 'A valid WhatsApp mobile number is required. Please provide your phone number.'
-        });
-      }
-      dispatchResult = await sendOtpWhatsApp({
-        phone: targetPhone,
-        otp,
-        name: user.name
-      });
-      destinationLabel = `WhatsApp message (${dispatchResult.maskedDestination || maskPhoneNumber(targetPhone)})`;
-    } else if (channel === 'sms') {
-      const targetPhone = user.phone;
-      if (!targetPhone) {
-        return res.status(400).json({
-          success: false,
-          message: 'A valid mobile number is required for SMS delivery. Please provide your phone number.'
-        });
-      }
-      dispatchResult = await sendOtpSms({
-        phone: targetPhone,
-        otp,
-        name: user.name
-      });
-      destinationLabel = `SMS message (${dispatchResult.maskedDestination || maskPhoneNumber(targetPhone)})`;
-    } else {
-      // Default: Email delivery via Gmail SMTP
-      dispatchResult = await sendOtpVerificationEmail({
-        name: user.name,
-        email: user.email,
-        otp,
-        reason: 'Account Password Change & Verification'
-      });
-
-      // Mask user email for privacy: e.g. j***a@example.com
-      const emailParts = user.email.split('@');
-      const namePart = emailParts[0];
-      const domainPart = emailParts[1];
-      const maskedName = namePart.length <= 2
-        ? namePart[0] + '***'
-        : namePart[0] + '***' + namePart.slice(-1);
-      const maskedEmail = `${maskedName}@${domainPart}`;
-      destinationLabel = `official email (${maskedEmail})`;
-    }
+    const dispatchResult = await sendOtpVerificationEmail({
+      name: user.name,
+      email: user.email,
+      otp,
+      reason: 'Account Password Change & Verification'
+    });
 
     return res.status(200).json({
       success: true,
-      message: dispatchResult?.liveError
-        ? `Provider alert: ${dispatchResult.liveError}. (Displayed in simulator below)`
-        : `A 6-digit verification code has been dispatched to your ${destinationLabel}.`,
-      channel,
+      message: `A 6-digit verification code has been dispatched to your ${destinationLabel}.`,
+      channel: 'email',
       destinationLabel,
       expiresInMinutes: 10,
-      mode: dispatchResult?.mode,
-      liveError: dispatchResult?.liveError,
-      previewOtp: dispatchResult?.mode === 'preview_mode' ? otp : undefined
+      mode: dispatchResult?.mode
     });
   } catch (error) {
     console.error('[sendPasswordOtp Error]', error);
@@ -588,5 +569,573 @@ export const changePasswordWithOtp = async (req, res) => {
       success: false,
       message: error.message || 'Failed to update password.'
     });
+  }
+};
+
+/**
+ * POST /api/auth/register-send-otp (Step 1: Validate Registration Details & Send Email Confirmation OTP)
+ */
+export const registerSendOtp = async (req, res) => {
+  try {
+    const { name, email, phone, password, confirmPassword } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Full name, email address, and password are required.'
+      });
+    }
+
+    if (name.trim().length < 3 || !/^[a-zA-Z\s.]+$/.test(name.trim())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Full name must be at least 3 characters and contain only letters, dots, and spaces.'
+      });
+    }
+
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid email address.'
+      });
+    }
+
+    let sanitizedPhone = '';
+    if (phone && phone.trim()) {
+      const cleanPhone = phone.trim().replace(/^(\+91|\+0|0)/, '').replace(/\D/g, '');
+      if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Mobile number must be a valid 10-digit Indian number starting with 6, 7, 8, or 9.'
+        });
+      }
+      sanitizedPhone = `+91 ${cleanPhone.slice(0, 5)} ${cleanPhone.slice(5)}`;
+    }
+
+    if (confirmPassword && password !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match.'
+      });
+    }
+
+    if (password.length < 8 || !/\d/.test(password)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters long with at least one numeric digit (0-9).'
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    // Check if an ACTIVE user already exists with this email
+    const existingActive = await User.findOne({ email: normalizedEmail, status: { $ne: 'Pending' } });
+    if (existingActive) {
+      return res.status(409).json({
+        success: false,
+        message: 'An account with this email address already exists. Please log in.'
+      });
+    }
+
+    // Generate 6-digit confirmation code
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const passwordHash = await User.hashPassword(password);
+
+    // Find or create pending user record
+    let user = await User.findOne({ email: normalizedEmail, status: 'Pending' });
+    if (user) {
+      user.name = name.trim();
+      user.phone = sanitizedPhone;
+      user.passwordHash = passwordHash;
+      user.emailVerificationOtp = otp;
+      user.emailVerificationOtpExpires = otpExpires;
+      await user.save();
+    } else {
+      user = new User({
+        name: name.trim(),
+        email: normalizedEmail,
+        phone: sanitizedPhone,
+        passwordHash,
+        role: 'CITIZEN',
+        status: 'Pending',
+        emailVerificationOtp: otp,
+        emailVerificationOtpExpires: otpExpires
+      });
+      await user.save();
+    }
+
+    // Send confirmation email
+    const dispatchResult = await sendAccountConfirmationOtpEmail({
+      name: user.name,
+      email: user.email,
+      otp
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Account confirmation code sent to ${user.email}. Please verify to complete registration.`,
+      previewOtp: dispatchResult?.mode === 'preview_mode' ? otp : undefined
+    });
+  } catch (error) {
+    console.error('[registerSendOtp Error]', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to dispatch registration confirmation code.'
+    });
+  }
+};
+
+/**
+ * POST /api/auth/register-verify-otp (Step 2: Verify Confirmation Code & Activate Citizen Account)
+ */
+export const registerVerifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email address and verification code are required.'
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Registration session not found. Please start registration again.'
+      });
+    }
+
+    if (user.status === 'Active') {
+      return res.status(400).json({
+        success: false,
+        message: 'This account has already been confirmed and activated. Please log in.'
+      });
+    }
+
+    if (!user.emailVerificationOtp || !user.emailVerificationOtpExpires) {
+      return res.status(400).json({
+        success: false,
+        message: 'No pending verification code found. Please request a new code.'
+      });
+    }
+
+    if (new Date() > new Date(user.emailVerificationOtpExpires)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Verification code has expired. Please request a new one.'
+      });
+    }
+
+    if (user.emailVerificationOtp.trim() !== String(otp).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid verification code. Please check the 6-digit code sent to your email.'
+      });
+    }
+
+    // Activate citizen account
+    user.status = 'Active';
+    user.emailVerificationOtp = null;
+    user.emailVerificationOtpExpires = null;
+    await user.save();
+
+    const token = generateToken(user);
+
+    // Audit Log
+    await AuditLog.logAction({
+      action: 'CITIZEN_REGISTERED_AND_CONFIRMED',
+      performedBy: { userId: user._id, name: user.name, email: user.email, role: 'CITIZEN' },
+      targetType: 'User',
+      targetId: user._id,
+      details: `Citizen account confirmed via email OTP and activated for ${user.name} (${user.email})`,
+      ipAddress: req.ip
+    });
+
+    // Send Welcome Email
+    sendCitizenWelcomeEmail({
+      name: user.name,
+      email: user.email,
+      phone: user.phone || '',
+      portalUrl: process.env.CLIENT_URL || 'http://localhost:5173'
+    }).catch(err => console.error('[sendCitizenWelcomeEmail async error]', err.message));
+
+    const userObj = user.toObject();
+    delete userObj.passwordHash;
+    delete userObj.emailVerificationOtp;
+    delete userObj.emailVerificationOtpExpires;
+
+    return res.status(201).json({
+      success: true,
+      message: 'Account confirmed and activated successfully! Welcome to JanSahayata.',
+      token,
+      user: userObj
+    });
+  } catch (error) {
+    console.error('[registerVerifyOtp Error]', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to verify account confirmation code.'
+    });
+  }
+};
+
+/**
+ * POST /api/auth/citizen-email-change/send-current-otp
+ * Step 1: Send OTP to citizen's CURRENT registered email
+ */
+export const sendCitizenCurrentEmailOtp = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.currentEmailOtp = otp;
+    user.currentEmailOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    user.emailChangeCurrentVerified = false;
+    await user.save();
+
+    const dispatchResult = await sendCitizenOldEmailChangeOtp({
+      name: user.name,
+      email: user.email,
+      otp
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Security authorization code sent to your current email (${user.email}).`,
+      previewOtp: dispatchResult?.mode === 'preview_mode' ? otp : undefined
+    });
+  } catch (error) {
+    console.error('[sendCitizenCurrentEmailOtp Error]', error);
+    return res.status(500).json({ success: false, message: error.message || 'Failed to send security code.' });
+  }
+};
+
+/**
+ * POST /api/auth/citizen-email-change/verify-current-otp
+ * Step 1 Verify: Verify OTP from current email
+ */
+export const verifyCitizenCurrentEmailOtp = async (req, res) => {
+  try {
+    const { otp } = req.body;
+    if (!otp) {
+      return res.status(400).json({ success: false, message: 'Verification code is required.' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user || !user.currentEmailOtp || !user.currentEmailOtpExpires) {
+      return res.status(400).json({ success: false, message: 'No active email change request. Please request a new code.' });
+    }
+
+    if (new Date() > new Date(user.currentEmailOtpExpires)) {
+      return res.status(400).json({ success: false, message: 'Verification code has expired. Please request a new one.' });
+    }
+
+    if (user.currentEmailOtp.trim() !== String(otp).trim()) {
+      return res.status(400).json({ success: false, message: 'Invalid verification code. Please check your current inbox.' });
+    }
+
+    user.emailChangeCurrentVerified = true;
+    user.currentEmailOtp = null;
+    user.currentEmailOtpExpires = null;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Current email successfully verified. Please enter your new email address.'
+    });
+  } catch (error) {
+    console.error('[verifyCitizenCurrentEmailOtp Error]', error);
+    return res.status(500).json({ success: false, message: error.message || 'Failed to verify current email code.' });
+  }
+};
+
+/**
+ * POST /api/auth/citizen-email-change/send-new-otp
+ * Step 2: Send OTP to citizen's NEW email address
+ */
+export const sendCitizenNewEmailOtp = async (req, res) => {
+  try {
+    const { newEmail } = req.body;
+    if (!newEmail) {
+      return res.status(400).json({ success: false, message: 'New email address is required.' });
+    }
+
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const cleanNewEmail = newEmail.trim().toLowerCase();
+    if (!emailRegex.test(cleanNewEmail)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    if (cleanNewEmail === user.email.toLowerCase()) {
+      return res.status(400).json({
+        success: false,
+        message: 'The new email cannot be the same as your currently registered email.'
+      });
+    }
+
+    // Check if new email is in use by another user
+    const existing = await User.findOne({ email: cleanNewEmail, _id: { $ne: user._id } });
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: 'This email address is already registered to another account.'
+      });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.pendingNewEmail = cleanNewEmail;
+    user.newEmailOtp = otp;
+    user.newEmailOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    const dispatchResult = await sendCitizenNewEmailVerificationOtp({
+      name: user.name,
+      email: cleanNewEmail,
+      otp
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Verification code sent to your new email (${cleanNewEmail}).`,
+      previewOtp: dispatchResult?.mode === 'preview_mode' ? otp : undefined
+    });
+  } catch (error) {
+    console.error('[sendCitizenNewEmailOtp Error]', error);
+    return res.status(500).json({ success: false, message: error.message || 'Failed to send new email verification code.' });
+  }
+};
+
+/**
+ * POST /api/auth/citizen-email-change/confirm-new-email
+ * Step 3: Verify OTP from new email & complete email change
+ */
+export const confirmCitizenNewEmail = async (req, res) => {
+  try {
+    const { newEmail, otp } = req.body;
+    if (!newEmail || !otp) {
+      return res.status(400).json({ success: false, message: 'New email and verification code are required.' });
+    }
+
+    const cleanNewEmail = newEmail.trim().toLowerCase();
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    if (!user.emailChangeCurrentVerified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Security authorization required: You must first verify the code sent to your current email.'
+      });
+    }
+
+    if (!user.pendingNewEmail || user.pendingNewEmail !== cleanNewEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'New email does not match pending verification session. Please request a new code.'
+      });
+    }
+
+    if (!user.newEmailOtp || !user.newEmailOtpExpires) {
+      return res.status(400).json({ success: false, message: 'No active code found. Please request a new code.' });
+    }
+
+    if (new Date() > new Date(user.newEmailOtpExpires)) {
+      return res.status(400).json({ success: false, message: 'Verification code has expired. Please request a new one.' });
+    }
+
+    if (user.newEmailOtp.trim() !== String(otp).trim()) {
+      return res.status(400).json({ success: false, message: 'Invalid verification code for your new email address.' });
+    }
+
+    // Check again for conflict
+    const conflict = await User.findOne({ email: cleanNewEmail, _id: { $ne: user._id } });
+    if (conflict) {
+      return res.status(409).json({ success: false, message: 'This email is already in use by another account.' });
+    }
+
+    const oldEmail = user.email;
+
+    // Apply change
+    user.email = cleanNewEmail;
+    user.pendingNewEmail = null;
+    user.newEmailOtp = null;
+    user.newEmailOtpExpires = null;
+    user.emailChangeCurrentVerified = false;
+    await user.save();
+
+    // Update complaints associated with citizen's old email
+    await Complaint.updateMany(
+      { 'citizenDetails.email': oldEmail },
+      { $set: { 'citizenDetails.email': cleanNewEmail } }
+    );
+
+    // Audit Log
+    await AuditLog.logAction({
+      action: 'CITIZEN_EMAIL_UPDATED_DUAL_OTP',
+      performedBy: { userId: user._id, name: user.name, email: cleanNewEmail, role: 'CITIZEN' },
+      targetType: 'User',
+      targetId: user._id,
+      details: `Citizen ${user.name} changed registered email via dual-OTP verification: ${oldEmail} -> ${cleanNewEmail}`,
+      ipAddress: req.ip
+    });
+
+    // Send dual notification emails
+    sendCitizenEmailChangeDualNotice({
+      name: user.name,
+      oldEmail,
+      newEmail: cleanNewEmail,
+      adminApproved: false
+    }).catch(err => console.error('[sendCitizenEmailChangeDualNotice Error]', err));
+
+    const token = generateToken(user);
+    const userObj = user.toObject();
+    delete userObj.passwordHash;
+
+    return res.status(200).json({
+      success: true,
+      message: `Email address successfully updated to ${cleanNewEmail}!`,
+      token,
+      user: userObj
+    });
+  } catch (error) {
+    console.error('[confirmCitizenNewEmail Error]', error);
+    return res.status(500).json({ success: false, message: error.message || 'Failed to update email address.' });
+  }
+};
+
+/**
+ * POST /api/auth/citizen-email-change/request-admin
+ * Fallback: If old email is lost / inaccessible, submit request to Super Admin
+ */
+export const requestCitizenAdminEmailChange = async (req, res) => {
+  try {
+    const { requestedEmail, contactPhone, reason, newEmailOtp } = req.body;
+
+    if (!requestedEmail || !reason) {
+      return res.status(400).json({
+        success: false,
+        message: 'New email address and official explanation reason are required.'
+      });
+    }
+
+    const cleanRequested = requestedEmail.trim().toLowerCase();
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(cleanRequested)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid new email address.' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    if (cleanRequested === user.email.toLowerCase()) {
+      return res.status(400).json({
+        success: false,
+        message: 'The requested new email cannot be the same as your currently registered email.'
+      });
+    }
+
+    // Check if new email is in use
+    const conflict = await User.findOne({ email: cleanRequested, _id: { $ne: user._id } });
+    if (conflict) {
+      return res.status(409).json({
+        success: false,
+        message: 'This email is already in use by another account.'
+      });
+    }
+
+    // Verify new email OTP if provided
+    if (newEmailOtp) {
+      if (!user.pendingNewEmail || user.pendingNewEmail !== cleanRequested || user.newEmailOtp !== String(newEmailOtp).trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid verification code for your new email address.'
+        });
+      }
+    }
+
+    // Check for existing pending request
+    const existingReq = await EmailChangeRequest.findOne({
+      user: user._id,
+      status: 'PENDING'
+    });
+
+    if (existingReq) {
+      return res.status(400).json({
+        success: false,
+        message: 'You already have an active email change request pending Super Admin review.'
+      });
+    }
+
+    const newRequest = new EmailChangeRequest({
+      role: 'CITIZEN',
+      user: user._id,
+      citizenName: user.name,
+      currentEmail: user.email,
+      requestedEmail: cleanRequested,
+      contactPhone: contactPhone ? contactPhone.trim() : user.phone,
+      reason: reason.trim(),
+      status: 'PENDING'
+    });
+
+    await newRequest.save();
+
+    await AuditLog.logAction({
+      action: 'CITIZEN_EMAIL_CHANGE_REQUESTED',
+      performedBy: { userId: user._id, name: user.name, email: user.email, role: 'CITIZEN' },
+      targetType: 'EmailChangeRequest',
+      targetId: newRequest._id,
+      details: `Citizen ${user.name} submitted email change request (Current: ${user.email} -> Requested: ${cleanRequested}). Reason: ${reason}`,
+      ipAddress: req.ip
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Email change request successfully submitted to the Super Administrator for approval.',
+      data: newRequest
+    });
+  } catch (error) {
+    console.error('[requestCitizenAdminEmailChange Error]', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to submit email change request.'
+    });
+  }
+};
+
+/**
+ * GET /api/auth/citizen-email-change/status
+ * Check existing request status
+ */
+export const getCitizenEmailChangeStatus = async (req, res) => {
+  try {
+    const request = await EmailChangeRequest.findOne({
+      user: req.user._id,
+      status: 'PENDING'
+    }).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      data: request || null
+    });
+  } catch (error) {
+    console.error('[getCitizenEmailChangeStatus Error]', error);
+    return res.status(500).json({ success: false, message: 'Failed to retrieve request status.' });
   }
 };

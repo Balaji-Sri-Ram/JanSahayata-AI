@@ -36,6 +36,8 @@ api.interceptors.response.use(
 // ==========================================
 export const authApi = {
   register: (userData) => api.post('/auth/register', userData),
+  registerSendOtp: (userData) => api.post('/auth/register-send-otp', userData),
+  registerVerifyOtp: (otpData) => api.post('/auth/register-verify-otp', otpData),
   login: (credentials) => api.post('/auth/login', credentials),
   staffLogin: (credentials) => api.post('/auth/staff-login', credentials),
   getMe: () => api.get('/auth/me'),
@@ -43,6 +45,14 @@ export const authApi = {
   firstTimeResetPassword: (data) => api.post('/auth/first-time-reset-password', data),
   sendPasswordOtp: (payload = {}) => api.post('/auth/send-password-otp', payload),
   changePasswordWithOtp: (data) => api.post('/auth/change-password-with-otp', data),
+
+  // Citizen Self-Service Email Change (Dual OTP & Admin Request)
+  sendCurrentEmailOtp: () => api.post('/auth/citizen-email-change/send-current-otp'),
+  verifyCurrentEmailOtp: (data) => api.post('/auth/citizen-email-change/verify-current-otp', data),
+  sendNewEmailOtp: (data) => api.post('/auth/citizen-email-change/send-new-otp', data),
+  confirmNewEmail: (data) => api.post('/auth/citizen-email-change/confirm-new-email', data),
+  requestAdminEmailChange: (data) => api.post('/auth/citizen-email-change/request-admin', data),
+  getCitizenEmailChangeStatus: () => api.get('/auth/citizen-email-change/status'),
 };
 
 // ==========================================
@@ -73,6 +83,9 @@ export const citizenApi = {
   },
   getDepartments: () => {
     return api.get('/ai/departments');
+  },
+  sendComplaintTrackingEmail: (id, email) => {
+    return api.post(`/complaints/${id}/send-tracking-email`, { email });
   }
 };
 

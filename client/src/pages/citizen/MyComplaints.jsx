@@ -23,6 +23,8 @@ export default function MyComplaints() {
   const { user } = useAuth();
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshCountdown, setRefreshCountdown] = useState(0);
   const [activeTab, setActiveTab] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -30,11 +32,35 @@ export default function MyComplaints() {
     fetchComplaints();
   }, [user]);
 
-  const fetchComplaints = async () => {
-    try {
-      setLoading(true);
+  // Real-time live polling every 8s so status updates appear live
+  useEffect(() => {
+    const timer = setInterval(() => {
       const citizenId = user?._id || 'current';
-      const res = await citizenApi.getMyComplaints(citizenId);
+      citizenApi.getMyComplaints(citizenId).then(res => {
+        if (res.data?.success) setComplaints(res.data.data || []);
+      }).catch(() => {});
+    }, 8000);
+
+    return () => clearInterval(timer);
+  }, [user]);
+
+  const fetchComplaints = async (isManual = false) => {
+    try {
+      if (isManual) {
+        setIsRefreshing(true);
+        setRefreshCountdown(3);
+        const countdownTimer = setInterval(() => {
+          setRefreshCountdown(prev => (prev > 1 ? prev - 1 : 1));
+        }, 1000);
+        setTimeout(() => clearInterval(countdownTimer), 3200);
+      } else {
+        setLoading(true);
+      }
+      const citizenId = user?._id || 'current';
+      const [res] = await Promise.all([
+        citizenApi.getMyComplaints(citizenId),
+        isManual ? new Promise(r => setTimeout(r, 3000)) : Promise.resolve()
+      ]);
       if (res.data?.success) {
         setComplaints(res.data.data || []);
       }
@@ -42,6 +68,8 @@ export default function MyComplaints() {
       console.error('Error loading citizen complaints:', err);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
+      setRefreshCountdown(0);
     }
   };
 
@@ -73,13 +101,13 @@ export default function MyComplaints() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={fetchComplaints}
-            disabled={loading}
+            onClick={() => fetchComplaints(true)}
+            disabled={loading || isRefreshing}
             className="gov-btn-secondary text-xs py-2 px-3"
             title="Refresh List"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-blue-600' : loading ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? `Refreshing (${refreshCountdown || 3}s)...` : 'Refresh'}</span>
           </button>
 
           <Link

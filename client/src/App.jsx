@@ -73,7 +73,7 @@ export default function App() {
       <ScrollRestoration />
       {user?.mustResetPassword && <FirstTimePasswordResetModal />}
       <Header key={`header-${currentLang}`} />
-      <main key={`main-${currentLang}`} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main key={`main-${currentLang}`} className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
         <Routes>
           {/* Public Routes */}
           <Route
@@ -97,6 +97,10 @@ export default function App() {
           {/* Public Complaint Tracking (works without auth) */}
           <Route path="/complaint/:id" element={<ComplaintDetails />} />
 
+          {/* Public Complaint Filing (No login required) */}
+          <Route path="/report" element={<ReportProblem />} />
+          <Route path="/report-problem" element={<Navigate to="/report" replace />} />
+
           {/* Citizen Protected Routes */}
           <Route
             path="/citizen/dashboard"
@@ -106,16 +110,6 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/report"
-            element={
-              <ProtectedRoute allowedRoles={['CITIZEN']}>
-                <ReportProblem />
-              </ProtectedRoute>
-            }
-          />
-          {/* Alias for backward compat */}
-          <Route path="/report-problem" element={<Navigate to="/report" replace />} />
           <Route
             path="/my-complaints"
             element={

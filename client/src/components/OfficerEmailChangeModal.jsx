@@ -284,7 +284,7 @@ export default function OfficerEmailChangeModal({ isOpen, onClose }) {
                 {/* Contact Phone */}
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
-                    Contact Mobile Number (For Status SMS/WhatsApp)
+                    Contact Mobile Number (Optional)
                   </label>
                   <div className="relative">
                     <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />

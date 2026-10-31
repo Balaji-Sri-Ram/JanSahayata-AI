@@ -2,6 +2,7 @@ import { Complaint } from '../models/Complaint.js';
 import { aiService } from '../services/ai/aiService.js';
 import { getDepartmentById, DEPARTMENTS } from '../config/departments.js';
 import { AuditLog } from '../models/AuditLog.js';
+import { sendComplaintConfirmationEmail } from '../services/emailService.js';
 
 // Helper to format relative upload URLs
 const getFileUrl = (req, file) => {
@@ -72,7 +73,7 @@ export const createComplaint = async (req, res) => {
 
     const finalCitizenId = req.user ? String(req.user._id) : (citizenId || 'CITIZEN-GUEST');
     const finalCitizenDetails = {
-      name: req.user?.name || citizenName || 'Verified Citizen',
+      name: req.user?.name || citizenName || 'Citizen',
       email: req.user?.email || citizenEmail || '',
       phone: req.user?.phone || citizenPhone || ''
     };
@@ -129,6 +130,21 @@ export const createComplaint = async (req, res) => {
       ipAddress: req.ip
     });
 
+    // If citizen email is provided, send official tracking confirmation email asynchronously
+    if (finalCitizenDetails.email && finalCitizenDetails.email.includes('@')) {
+      sendComplaintConfirmationEmail({
+        complaintId: savedComplaint.complaintId,
+        recipientEmail: finalCitizenDetails.email,
+        recipientName: finalCitizenDetails.name || 'Citizen',
+        departmentName: dept.name,
+        category,
+        description,
+        address: locationAddress || 'Civic Premises',
+        urgency: finalUrgency,
+        portalUrl: process.env.CLIENT_URL || 'http://localhost:5173'
+      }).catch(err => console.error('[sendComplaintConfirmationEmail async error]', err.message));
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Complaint submitted successfully',
@@ -149,13 +165,25 @@ export const getComplaintsByCitizen = async (req, res) => {
     const { citizenId } = req.params;
     const targetCitizenId = (citizenId && citizenId !== 'current')
       ? citizenId
-      : (req.user ? String(req.user._id) : 'CITIZEN-DEMO-001');
+      : (req.user ? String(req.user._id) : null);
+
+    if (!targetCitizenId) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: []
+      });
+    }
+
+    // Only return complaints actually submitted by this specific citizen account
+    // or matching their verified email address. No demo/fake fallback complaints!
+    const queryConditions = [{ citizenId: targetCitizenId }];
+    if (req.user?.email) {
+      queryConditions.push({ 'citizenDetails.email': req.user.email.toLowerCase() });
+    }
 
     const complaints = await Complaint.find({
-      $or: [
-        { citizenId: targetCitizenId },
-        { citizenId: 'CITIZEN-DEMO-001' }
-      ]
+      $or: queryConditions
     }).sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -642,5 +670,64 @@ export const getRailwayDashboardStats = async (req, res) => {
   } catch (error) {
     console.error('[getRailwayDashboardStats Error]', error);
     return res.status(500).json({ success: false, message: error.message || 'Failed to fetch dashboard stats' });
+  }
+};
+
+// POST /api/complaints/:id/send-tracking-email
+export const sendComplaintTrackingEmail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { email } = req.body;
+
+    if (!email || !email.trim() || !email.includes('@')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid email address.'
+      });
+    }
+
+    const complaint = await Complaint.findOne({
+      $or: [
+        { complaintId: id },
+        { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }
+      ]
+    });
+
+    if (!complaint) {
+      return res.status(404).json({
+        success: false,
+        message: 'Grievance record not found.'
+      });
+    }
+
+    const emailResult = await sendComplaintConfirmationEmail({
+      complaintId: complaint.complaintId,
+      recipientEmail: email.trim().toLowerCase(),
+      recipientName: complaint.citizenDetails?.name || 'Citizen',
+      departmentName: complaint.department?.name || 'Public Department',
+      category: complaint.category,
+      description: complaint.description,
+      address: complaint.location?.address || 'Civic Premises',
+      urgency: complaint.urgency,
+      portalUrl: process.env.CLIENT_URL || 'http://localhost:5173'
+    });
+
+    if (!emailResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: 'Could not send tracking email. Please verify email settings.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Tracking details sent to ${email.trim().toLowerCase()}`
+    });
+  } catch (error) {
+    console.error('[sendComplaintTrackingEmail Error]', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to send tracking email'
+    });
   }
 };

@@ -90,7 +90,7 @@ export default function CitizenLogin() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="citizen@jansahayata.gov.in"
+                placeholder="citizen@gmail.com"
                 className="gov-input pl-9 text-xs py-2.5"
               />
             </div>

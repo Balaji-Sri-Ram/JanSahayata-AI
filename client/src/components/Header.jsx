@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -6,6 +6,8 @@ import EmblemLogo from './EmblemLogo';
 import LanguageDropdown from './LanguageDropdown';
 import ChangePasswordModal from './ChangePasswordModal';
 import OfficerEmailChangeModal from './OfficerEmailChangeModal';
+import CitizenEmailChangeModal from './CitizenEmailChangeModal';
+import IndianFlag from './IndianFlag';
 import { 
   PlusCircle, 
   Search, 
@@ -25,7 +27,10 @@ import {
   UserPlus,
   Inbox,
   KeyRound,
-  Mail
+  Mail,
+  Home,
+  HelpCircle,
+  FileText
 } from 'lucide-react';
 
 export default function Header() {
@@ -48,15 +53,23 @@ export default function Header() {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const userDropdownRef = useRef(null);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [showEmailChangeModal, setShowEmailChangeModal] = useState(false);
+  const [showCitizenEmailModal, setShowCitizenEmailModal] = useState(false);
+  const isLandingPage = location.pathname === '/';
   const [fontSize, setFontSize] = useState('normal'); // 'small' | 'normal' | 'large'
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [navbarVisible, setNavbarVisible] = useState(!isLandingPage);
 
   // Smooth scroll tracking
-  // When at top / landing page: nothing appears (isScrolled = false)
-  // When scrolling down: space adjusts and three colors smoothly move to the right side
+  // Fixed Title Bar: JanSahayata brand & top utility bar stay fixed at the top.
+  // Dark Blue Navbar:
+  // - At starting landing page: hidden/disabled.
+  // - Immediately after crossing the orange "File a Complaint" button: smoothly slides down below the title bar.
+  // - Scrolling back above the orange button: smoothly hides.
+  // - Other pages: always visible.
   useEffect(() => {
     let ticking = false;
 
@@ -67,6 +80,21 @@ export default function Header() {
       
       setScrollProgress(progress);
       setIsScrolled(scrollTop > 15);
+
+      if (location.pathname === '/') {
+        // Track the orange "File a Complaint" button in the hero box
+        const fileBtn = document.getElementById('hero-file-complaint-btn');
+        if (fileBtn) {
+          const rect = fileBtn.getBoundingClientRect();
+          // Immediately when user scrolls to/past the orange "File a Complaint" button:
+          setNavbarVisible(rect.top <= 140 || rect.bottom <= 180 || scrollTop > 180);
+        } else {
+          setNavbarVisible(scrollTop > 180);
+        }
+      } else {
+        setNavbarVisible(true);
+      }
+
       ticking = false;
     };
 
@@ -80,7 +108,7 @@ export default function Header() {
     window.addEventListener('scroll', onScroll, { passive: true });
     handleScroll();
     return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [location.pathname]);
 
   // Text resizing handler for accessibility
   const handleFontSizeChange = (size) => {
@@ -107,9 +135,23 @@ export default function Header() {
     setUserDropdownOpen(false);
   }, [location.pathname]);
 
+  // Close user dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target)) {
+        setUserDropdownOpen(false);
+      }
+    }
+    if (userDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [userDropdownOpen]);
+
   const adminNavLinks = [
     { name: t('adminNavOverview'), path: '/admin/dashboard' },
     { name: t('adminNavComplaints'), path: '/admin/dashboard?tab=complaints' },
+    { name: 'Registered Citizens', path: '/admin/dashboard?tab=citizens' },
     { name: t('adminNavEmployees'), path: '/admin/dashboard?tab=employees' },
     { name: t('adminNavEmailRequests'), path: '/admin/dashboard?tab=email-requests' },
     { name: t('adminNavAudit'), path: '/admin/dashboard?tab=activity' },
@@ -132,7 +174,10 @@ export default function Header() {
   const navLinks = isSuperAdmin ? adminNavLinks : isEmployee ? staffNavLinks : citizenNavLinks;
 
   return (
-    <header className="sticky top-0 z-50 bg-[#0b2545] shadow-md border-b border-slate-300 relative m-0 p-0">
+    <header 
+      className="sticky top-0 z-50 bg-[#0b2545] shadow-md border-b border-slate-300 m-0 p-0 w-full"
+      style={{ position: 'sticky', top: 0, zIndex: 50 }}
+    >
       
       {/* 1. Smooth Overlay Tricolor Scroll Animation (Does not increase header height or create a new line) */}
       <div 
@@ -245,39 +290,36 @@ export default function Header() {
       </div>
 
       {/* 3. Main Header (Authentic Lion Emblem + Clean Simple Brand) */}
-      <div className="bg-white py-3 px-4 sm:px-6 lg:px-8 border-b border-slate-200">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <div className="bg-white py-2.5 sm:py-3 px-3 sm:px-6 lg:px-8 border-b border-slate-200 max-w-full relative z-20">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Official Three-Lion State Emblem of India + Department Brand */}
-          <Link to={homeLink} className="flex items-center gap-3 sm:gap-4 group">
+          <Link to={homeLink} className="flex items-center gap-2 sm:gap-3 group min-w-0 flex-1 overflow-hidden">
             
             {/* Authentic Lion Capital of Ashoka Emblem (Image provided by user) */}
             <div className="group-hover:scale-105 transition-transform shrink-0">
-              <EmblemLogo size="md" className="sm:hidden" />
+              <EmblemLogo size="sm" className="sm:hidden" />
               <EmblemLogo size="lg" className="hidden sm:block" />
             </div>
 
             {/* Clean Simple Masthead Titles with Official Hindi Line from CPGRAMS */}
-            <div className="border-l border-slate-300 pl-3 sm:pl-4">
+            <div className="border-l border-slate-300 pl-2 sm:pl-3 min-w-0 truncate">
               {/* Hindi Department Authority Line */}
-              <div className="text-[11px] sm:text-xs font-bold text-slate-800 leading-tight">
+              <div className="text-[10px] sm:text-xs font-bold text-slate-800 leading-tight truncate hidden xs:block">
                 प्रशासनिक सुधार और लोक शिकायत विभाग
               </div>
-              <div className="text-[10px] sm:text-[11px] font-bold text-[#b91c1c] uppercase tracking-wide leading-tight mt-0.5">
+              <div className="text-[9px] sm:text-[11px] font-bold text-[#b91c1c] uppercase tracking-wide leading-tight mt-0.5 truncate hidden sm:block">
                 Department of Administrative Reforms & Public Grievances
               </div>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-xl sm:text-2xl font-black text-[#0b2545] tracking-tight">
+              <div className="flex items-baseline gap-1.5 sm:gap-2 truncate">
+                <span className="text-lg sm:text-2xl font-black text-[#0b2545] tracking-tight">
                   JanSahayata
                 </span>
-                <span className="text-sm sm:text-base font-bold text-slate-800 tracking-normal font-['Noto_Sans_Devanagari']">
+                <span className="text-xs sm:text-base font-bold text-slate-800 tracking-normal font-['Noto_Sans_Devanagari']">
                   जनसहायता
                 </span>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 hidden sm:inline-block">
+                <span className="text-[10px] sm:text-xs font-semibold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300 hidden md:inline-block">
                   Gov Portal
-                </span>
-                <span className="text-xs text-slate-600 font-semibold hidden md:inline">
-                  • Public Grievance Redressal
                 </span>
               </div>
             </div>
@@ -310,11 +352,11 @@ export default function Header() {
 
             {/* Authenticated User Menu OR Citizen Login */}
             {isAuthenticated ? (
-              <div className="relative">
+              <div className="relative" ref={userDropdownRef}>
                 <button
                   type="button"
-                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-800 text-xs font-medium transition-all"
+                  onClick={() => setUserDropdownOpen(prev => !prev)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-800 text-xs font-medium transition-all cursor-pointer select-none"
                   aria-expanded={userDropdownOpen}
                 >
                   <div className="w-7 h-7 rounded-full bg-[#0b2545] text-amber-400 flex items-center justify-center font-bold text-xs shadow-sm">
@@ -324,12 +366,12 @@ export default function Header() {
                     <p className="font-semibold text-slate-900 leading-tight max-w-[130px] truncate">{displayName}</p>
                     <p className="text-[10px] text-slate-500 font-medium">{displayRole}</p>
                   </div>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${userDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {/* Dropdown Menu */}
                 {userDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-50 animate-in fade-in duration-150">
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-2xl border border-slate-200 py-1 z-[100] animate-in fade-in zoom-in-95 duration-150">
                     <div className="px-4 py-2.5 border-b border-slate-100 bg-slate-50">
                       <p className="text-xs font-bold text-slate-900 truncate">{displayName}</p>
                       <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
@@ -401,6 +443,19 @@ export default function Header() {
                       </button>
                     )}
 
+                    {!isEmployee && !isSuperAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserDropdownOpen(false);
+                          setShowCitizenEmailModal(true);
+                        }}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-xs text-slate-700 hover:bg-slate-100 text-left font-medium"
+                      >
+                        <Mail className="w-4 h-4 text-[#0b2545]" /> Change Email Address (OTP)
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={handleLogout}
@@ -412,32 +467,44 @@ export default function Header() {
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-2">
                 <Link
                   to="/login"
-                  className="px-3.5 py-2 text-xs font-semibold text-[#0b2545] hover:bg-slate-100 rounded border border-slate-300 transition-colors"
+                  className="gov-btn-primary text-xs py-2 px-4 shadow-sm font-semibold flex items-center gap-1.5"
                 >
-                  {t('citizenLogin')}
-                </Link>
-                <Link
-                  to="/report"
-                  className="gov-btn-saffron text-xs py-2 px-3.5 hidden sm:inline-flex"
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>{t('fileComplaint')}</span>
+                  <User className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{t('citizenLogin')}</span>
                 </Link>
               </div>
             )}
 
-            {/* Mobile Menu Toggle Button */}
-            <div className="flex md:hidden items-center">
+            {/* Mobile Menu Toggle Button (Three Colored Lines -> Morphs into Indian Flag when clicked) */}
+            <div className="flex md:hidden items-center shrink-0">
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-2 rounded border border-slate-300 text-slate-700 hover:bg-slate-100 focus:outline-none"
-                aria-label="Toggle navigation menu"
+                className={`px-2.5 py-1.5 rounded-lg border transition-all duration-200 flex items-center justify-center focus:outline-none select-none active:scale-95 ${
+                  mobileMenuOpen
+                    ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-400/50 shadow-sm'
+                    : 'bg-white border-slate-300 hover:bg-slate-50 hover:border-slate-400 shadow-xs'
+                }`}
+                aria-label="Toggle official portal menu"
+                title={mobileMenuOpen ? "Close Menu" : "Click three colored lines to open menu"}
               >
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                {mobileMenuOpen ? (
+                  /* When open/clicked: Morphs into the Indian Flag with close indicator */
+                  <div className="flex items-center gap-1.5 animate-in zoom-in-95 duration-150">
+                    <IndianFlag className="w-6 h-4" />
+                    <span className="text-[11px] font-bold text-[#0b2545]">✕</span>
+                  </div>
+                ) : (
+                  /* Default state: Three Colored Lines (Saffron, White, Green) matching user's reference image */
+                  <div className="flex flex-col justify-center items-center gap-1 w-5 h-4.5 py-0.5 animate-in fade-in duration-150" title="Tiranga Menu">
+                    <span className="w-5 h-[3px] rounded-full bg-[#FF671F] block shadow-2xs" />
+                    <span className="w-5 h-[3px] rounded-full bg-white border border-slate-300 block shadow-2xs" />
+                    <span className="w-5 h-[3px] rounded-full bg-[#046A38] block shadow-2xs" />
+                  </div>
+                )}
               </button>
             </div>
 
@@ -446,8 +513,14 @@ export default function Header() {
         </div>
       </div>
 
-      {/* 4. Primary Horizontal Navigation Bar (Desktop) */}
-      <nav className="hidden md:block bg-[#0b2545] text-white border-t border-[#163b6b]">
+      {/* 4. Primary Horizontal Navigation Bar (Desktop) - Hidden at start of landing page, smoothly slides down below title after crossing orange button */}
+      <nav 
+        className={`hidden md:block bg-[#0b2545] text-white transition-all duration-300 ease-out overflow-hidden ${
+          isLandingPage && !navbarVisible
+            ? 'max-h-0 opacity-0 border-t-0 pointer-events-none'
+            : 'max-h-12 opacity-100 border-t border-[#163b6b]'
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-11">
             
@@ -491,20 +564,19 @@ export default function Header() {
                 </>
               ) : (
                 <>
-                  <Link 
-                    to="/track"
-                    className="flex items-center gap-1.5 text-xs text-slate-200 hover:text-white bg-[#07172b] px-3 py-1 rounded border border-[#1e4f8b]"
-                  >
-                    <Search className="w-3 h-3 text-amber-400" />
-                    <span>{t('trackStatus')}</span>
-                  </Link>
-
                   <Link
                     to="/report"
                     className="bg-[#e86100] hover:bg-[#c2410c] text-white text-xs font-bold px-3.5 py-1 rounded flex items-center gap-1.5 shadow-sm transition-colors"
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
-                    <span>{t('fileComplaint')}</span>
+                    <span>{t('fileComplaintBtn')}</span>
+                  </Link>
+                  <Link 
+                    to="/track"
+                    className="flex items-center gap-1.5 text-xs text-slate-200 hover:text-white bg-[#07172b] px-3.5 py-1 rounded border border-[#1e4f8b] hover:border-amber-400 transition-colors"
+                  >
+                    <Search className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{t('trackStatus')}</span>
                   </Link>
                 </>
               )}
@@ -514,18 +586,54 @@ export default function Header() {
         </div>
       </nav>
 
-      {/* 5. Mobile Navigation Drawer */}
+      {/* 5. Mobile Navigation Drawer (Toggled by Indian Flag Button) */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 space-y-4 shadow-xl">
+        <div className="md:hidden border-t-2 border-amber-400 bg-white px-4 pt-3 pb-6 space-y-4 shadow-2xl animate-in slide-in-from-top-2 duration-200 max-h-[85vh] overflow-y-auto">
           
+          {/* Top Tiranga Header Inside Drawer */}
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <IndianFlag className="w-6 h-4" />
+              <div className="text-[11px] font-bold text-[#0b2545] uppercase tracking-wider">
+                Government of India • JanSahayata
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              aria-label="Close menu"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* User Profile Card (if authenticated) */}
+          {isAuthenticated && (
+            <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-[#0b2545] text-amber-300 font-bold flex items-center justify-center text-xs shadow-xs">
+                  {displayName ? displayName.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-xs text-slate-900 truncate">{displayName}</p>
+                  <p className="text-[10px] text-slate-500 font-mono truncate">{user?.email}</p>
+                </div>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#0b2545] text-white">
+                {displayRole}
+              </span>
+            </div>
+          )}
+
           {/* Quick Action Buttons */}
-          <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-200">
+          <div className="grid grid-cols-2 gap-2 pb-1 border-b border-slate-200">
             {isSuperAdmin ? (
               <>
                 <Link
                   to="/admin/dashboard"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="gov-btn-primary py-2.5 text-xs font-bold text-center flex items-center justify-center gap-1.5"
+                  className="gov-btn-primary py-2.5 text-xs font-bold text-center flex items-center justify-center gap-1.5 shadow-xs"
                 >
                   <LayoutDashboard className="w-4 h-4" />
                   <span>Overview</span>
@@ -533,7 +641,7 @@ export default function Header() {
                 <Link
                   to="/admin/dashboard?tab=employees&action=new"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="gov-btn-saffron py-2.5 text-xs font-bold text-center flex items-center justify-center gap-1.5"
+                  className="gov-btn-saffron py-2.5 text-xs font-bold text-center flex items-center justify-center gap-1.5 shadow-xs"
                 >
                   <UserPlus className="w-4 h-4" />
                   <span>Add Officer</span>
@@ -544,7 +652,7 @@ export default function Header() {
                 <Link
                   to="/staff/dashboard"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="gov-btn-primary py-2.5 text-xs font-bold text-center flex items-center justify-center gap-1.5"
+                  className="gov-btn-primary py-2.5 text-xs font-bold text-center flex items-center justify-center gap-1.5 shadow-xs"
                 >
                   <LayoutDashboard className="w-4 h-4" />
                   <span>Workspace</span>
@@ -552,7 +660,7 @@ export default function Header() {
                 <Link
                   to="/staff/complaints"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="gov-btn-secondary py-2.5 text-xs font-bold text-center flex items-center justify-center gap-1.5"
+                  className="gov-btn-secondary py-2.5 text-xs font-bold text-center flex items-center justify-center gap-1.5 shadow-xs"
                 >
                   <Inbox className="w-4 h-4" />
                   <span>Queue</span>
@@ -563,7 +671,7 @@ export default function Header() {
                 <Link
                   to="/report"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="gov-btn-saffron py-2.5 text-xs font-bold text-center flex items-center justify-center gap-1.5"
+                  className="gov-btn-saffron py-2.5 text-xs font-bold text-center flex items-center justify-center gap-1.5 shadow-xs"
                 >
                   <PlusCircle className="w-4 h-4" />
                   <span>{t('fileComplaint')}</span>
@@ -571,7 +679,7 @@ export default function Header() {
                 <Link
                   to="/track"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="gov-btn-primary py-2.5 text-xs font-bold text-center flex items-center justify-center gap-1.5"
+                  className="gov-btn-primary py-2.5 text-xs font-bold text-center flex items-center justify-center gap-1.5 shadow-xs"
                 >
                   <Search className="w-4 h-4" />
                   <span>{t('trackStatus')}</span>
@@ -580,85 +688,125 @@ export default function Header() {
             )}
           </div>
 
-          {/* Language Selector in Mobile Drawer */}
-          <div className="p-3 bg-slate-50 rounded border border-slate-200">
-            <span className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Select Language</span>
-            <LanguageDropdown />
-          </div>
-
-          {/* Nav Links */}
+          {/* Primary Navigation Links */}
           <div className="space-y-1">
+            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider px-1">
+              Portal Services
+            </span>
             {navLinks.map((item) => (
               <Link
                 key={item.name}
                 to={item.path}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`block px-3 py-2.5 rounded text-sm font-semibold ${
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
                   location.pathname === item.path
-                    ? 'bg-blue-50 text-[#0b2545] border-l-4 border-[#0b2545]'
+                    ? 'bg-blue-50 text-[#0b2545] border-l-4 border-[#0b2545] font-bold'
                     : 'text-slate-700 hover:bg-slate-100'
                 }`}
               >
-                {item.name}
+                <span>{item.name}</span>
               </Link>
             ))}
           </div>
 
-          {/* Helpline & Auth */}
-          <div className="pt-3 border-t border-slate-200 space-y-2">
-            <div className="p-3 bg-slate-50 rounded border border-slate-200 text-xs text-slate-700 space-y-1">
-              <p className="font-semibold text-[#0b2545] flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-[#e86100]" /> National Helpline
-              </p>
-              <p className="font-mono text-sm font-bold text-slate-900">1800-11-4000 / 1930</p>
-              <p className="text-[11px] text-slate-500">24x7 Citizen Assistance</p>
-            </div>
+          {/* Language Selector in Mobile Drawer */}
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <span className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">
+              Bhashini Multilingual Support
+            </span>
+            <LanguageDropdown />
+          </div>
 
-            <div className="pt-2">
-              {isAuthenticated ? (
-                <div className="space-y-2">
+          {/* Helplines (Tap to Call) */}
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-[#0b2545] flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-[#e86100]" />
+                <span>National Helplines (24x7)</span>
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-xs">
+              <a
+                href="tel:1800114000"
+                className="p-1.5 bg-white rounded border border-slate-200 text-center font-bold text-blue-900 hover:border-blue-400 block"
+              >
+                1800-11-4000
+                <span className="block text-[9px] text-slate-500 font-sans font-normal">Toll-Free CPGRAMS</span>
+              </a>
+              <a
+                href="tel:139"
+                className="p-1.5 bg-white rounded border border-slate-200 text-center font-bold text-blue-900 hover:border-blue-400 block"
+              >
+                139
+                <span className="block text-[9px] text-slate-500 font-sans font-normal">Railway Help</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Helpline & Auth */}
+          <div className="pt-2 border-t border-slate-200 space-y-2">
+            {isAuthenticated ? (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setShowChangePasswordModal(true);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 gov-btn-secondary text-slate-800 text-xs py-2 font-semibold"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-[#0b2545]" /> Change Password (OTP)
+                </button>
+                {isEmployee && (
                   <button
                     type="button"
                     onClick={() => {
                       setMobileMenuOpen(false);
-                      setShowChangePasswordModal(true);
+                      setShowEmailChangeModal(true);
                     }}
                     className="w-full flex items-center justify-center gap-2 gov-btn-secondary text-slate-800 text-xs py-2 font-semibold"
                   >
-                    <KeyRound className="w-3.5 h-3.5 text-[#0b2545]" /> Change Password (OTP)
+                    <Mail className="w-3.5 h-3.5 text-[#0b2545]" /> Request Email Change
                   </button>
-                  {isEmployee && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMobileMenuOpen(false);
-                        setShowEmailChangeModal(true);
-                      }}
-                      className="w-full flex items-center justify-center gap-2 gov-btn-secondary text-slate-800 text-xs py-2 font-semibold"
-                    >
-                      <Mail className="w-3.5 h-3.5 text-[#0b2545]" /> Request Email Change
-                    </button>
-                  )}
+                )}
+                {!isEmployee && !isSuperAdmin && (
                   <button
                     type="button"
-                    onClick={handleLogout}
-                    className="w-full gov-btn-secondary text-red-600 border-red-200 text-xs py-2 text-center"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setShowCitizenEmailModal(true);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 gov-btn-secondary text-slate-800 text-xs py-2 font-semibold"
                   >
-                    {t('signOut')}
+                    <Mail className="w-3.5 h-3.5 text-[#0b2545]" /> Change Email Address (OTP)
                   </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-2">
-                  <Link
-                    to="/login"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="gov-btn-primary text-xs py-2 text-center"
-                  >
-                    {t('citizenLogin')}
-                  </Link>
-                </div>
-              )}
-            </div>
+                )}
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full gov-btn-secondary text-red-600 border-red-200 text-xs py-2 text-center font-semibold"
+                >
+                  {t('signOut')}
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <Link
+                  to="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="gov-btn-primary text-xs py-2 text-center font-semibold"
+                >
+                  {t('citizenLogin')}
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="gov-btn-secondary text-xs py-2 text-center font-semibold"
+                >
+                  Register Account
+                </Link>
+              </div>
+            )}
           </div>
 
         </div>
@@ -674,6 +822,12 @@ export default function Header() {
       <OfficerEmailChangeModal
         isOpen={showEmailChangeModal}
         onClose={() => setShowEmailChangeModal(false)}
+      />
+
+      {/* Citizen Dual OTP & Lost Email Change Modal */}
+      <CitizenEmailChangeModal
+        isOpen={showCitizenEmailModal}
+        onClose={() => setShowCitizenEmailModal(false)}
       />
 
     </header>

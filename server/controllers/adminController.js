@@ -7,7 +7,8 @@ import { DEPARTMENTS, getDepartmentById, getAllDepartmentsList } from '../config
 import { 
   sendOfficerWelcomeEmail,
   sendEmailChangeOldAddressNotice,
-  sendEmailChangeNewAddressNotice 
+  sendEmailChangeNewAddressNotice,
+  sendCitizenEmailChangeDualNotice
 } from '../services/emailService.js';
 
 /**
@@ -429,7 +430,7 @@ export const createEmployee = async (req, res) => {
 export const updateEmployee = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, phone, departmentId, designation, status, employeeId } = req.body;
+    const { name, phone, departmentId, designation, status, employeeId, resetPassword } = req.body;
 
     const employee = await User.findOne({ _id: id, role: 'EMPLOYEE' });
     if (!employee) {
@@ -451,6 +452,28 @@ export const updateEmployee = async (req, res) => {
       };
     }
 
+    let passwordMessage = '';
+    if (resetPassword) {
+      const randomHex = crypto.randomBytes(4).toString('hex').toUpperCase();
+      const randomDigits = Math.floor(100 + Math.random() * 900);
+      const generatedPassword = `Gov#${randomHex}@${randomDigits}`;
+      employee.passwordHash = await User.hashPassword(generatedPassword);
+      employee.mustResetPassword = true;
+
+      try {
+        await sendOfficerWelcomeEmail({
+          name: employee.name,
+          email: employee.email,
+          employeeId: employee.employeeId,
+          departmentName: employee.department.name,
+          temporaryPassword: generatedPassword
+        });
+        passwordMessage = ` New confidential temporary password dispatched to ${employee.email}.`;
+      } catch (mailErr) {
+        console.warn('[updateEmployee Mail Error]', mailErr.message);
+      }
+    }
+
     await employee.save();
 
     await AuditLog.logAction({
@@ -458,7 +481,7 @@ export const updateEmployee = async (req, res) => {
       performedBy: req.user,
       targetType: 'User',
       targetId: employee._id,
-      details: `Super Admin updated officer ${employee.name} (${employee.employeeId}) - Status: ${employee.status}, Dept: ${employee.department.name}`,
+      details: `Super Admin updated officer ${employee.name} (${employee.employeeId}) - Status: ${employee.status}, Dept: ${employee.department.name}.${passwordMessage}`,
       ipAddress: req.ip
     });
 
@@ -467,8 +490,9 @@ export const updateEmployee = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Employee updated successfully.',
-      data: userObj
+      message: `Officer profile updated successfully.${passwordMessage}`,
+      data: userObj,
+      employee: userObj
     });
   } catch (error) {
     console.error('[updateEmployee Error]', error);
@@ -564,30 +588,47 @@ export const getAllComplaints = async (req, res) => {
       sortOrder = 'desc'
     } = req.query;
 
-    const filter = {};
+    const conditions = [];
 
-    if (status && status !== 'All') filter.status = status;
-    if (urgency && urgency !== 'All') filter.urgency = urgency;
-    if (department && department !== 'All') {
-      filter.$or = [
-        { 'department.id': department },
-        { 'department.code': department },
-        { 'department.name': new RegExp(department, 'i') }
-      ];
+    if (status && status !== 'All') {
+      conditions.push({ status });
     }
-    if (category && category !== 'All') filter.category = category;
+    if (urgency && urgency !== 'All') {
+      conditions.push({ urgency });
+    }
+    if (category && category !== 'All') {
+      conditions.push({ category });
+    }
+    if (department && department !== 'All') {
+      conditions.push({
+        $or: [
+          { 'department.id': department },
+          { 'department.code': department },
+          { 'department.name': new RegExp(department, 'i') }
+        ]
+      });
+    }
 
     if (search && search.trim() !== '') {
-      const searchRegex = new RegExp(search.trim(), 'i');
-      filter.$or = [
-        { complaintId: searchRegex },
-        { description: searchRegex },
-        { generatedProblemStatement: searchRegex },
-        { aiGeneratedDescription: searchRegex },
-        { 'location.address': searchRegex },
-        { category: searchRegex }
-      ];
+      const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const searchRegex = new RegExp(escaped, 'i');
+      conditions.push({
+        $or: [
+          { complaintId: searchRegex },
+          { description: searchRegex },
+          { generatedProblemStatement: searchRegex },
+          { aiGeneratedDescription: searchRegex },
+          { 'location.address': searchRegex },
+          { category: searchRegex },
+          { 'citizenDetails.email': searchRegex },
+          { 'citizenDetails.name': searchRegex },
+          { 'citizenDetails.phone': searchRegex },
+          { citizenId: searchRegex }
+        ]
+      });
     }
+
+    const filter = conditions.length > 0 ? { $and: conditions } : {};
 
     const sort = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
@@ -789,6 +830,7 @@ export const getEmailChangeRequests = async (req, res) => {
       const q = search.trim();
       filter.$or = [
         { officerName: { $regex: q, $options: 'i' } },
+        { citizenName: { $regex: q, $options: 'i' } },
         { employeeId: { $regex: q, $options: 'i' } },
         { currentEmail: { $regex: q, $options: 'i' } },
         { requestedEmail: { $regex: q, $options: 'i' } }
@@ -797,7 +839,8 @@ export const getEmailChangeRequests = async (req, res) => {
 
     const requests = await EmailChangeRequest.find(filter)
       .sort({ createdAt: -1 })
-      .populate('officer', 'name email employeeId designation department phone');
+      .populate('officer', 'name email employeeId designation department phone')
+      .populate('user', 'name email phone role');
 
     const counts = {
       all: await EmailChangeRequest.countDocuments(),
@@ -842,16 +885,17 @@ export const approveEmailChangeRequest = async (req, res) => {
       });
     }
 
-    // Verify officer user exists
-    const officerUser = await User.findById(request.officer);
-    if (!officerUser) {
-      return res.status(404).json({ success: false, message: 'Associated officer user record not found.' });
+    // Verify user exists (officer or citizen)
+    const targetUserId = request.user || request.officer;
+    const targetUser = await User.findById(targetUserId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'Associated user record not found.' });
     }
 
     // Verify requested email is not already claimed
     const emailConflict = await User.findOne({
       email: request.requestedEmail,
-      _id: { $ne: officerUser._id }
+      _id: { $ne: targetUser._id }
     });
 
     if (emailConflict) {
@@ -861,12 +905,12 @@ export const approveEmailChangeRequest = async (req, res) => {
       });
     }
 
-    const oldEmail = officerUser.email;
+    const oldEmail = targetUser.email;
     const newEmail = request.requestedEmail;
 
-    // Update officer user email
-    officerUser.email = newEmail;
-    await officerUser.save();
+    // Update user email
+    targetUser.email = newEmail;
+    await targetUser.save();
 
     // Update request record
     request.status = 'APPROVED';
@@ -876,33 +920,66 @@ export const approveEmailChangeRequest = async (req, res) => {
     request.reviewedAt = new Date();
     await request.save();
 
-    // Log to Audit Log
+    const isCitizen = request.role === 'CITIZEN' || targetUser.role === 'CITIZEN';
+
+    if (isCitizen) {
+      // Update citizen's complaints in DB
+      await Complaint.updateMany(
+        { 'citizenDetails.email': oldEmail },
+        { $set: { 'citizenDetails.email': newEmail } }
+      );
+
+      // Log to Audit Log
+      await AuditLog.logAction({
+        action: 'CITIZEN_EMAIL_UPDATED_BY_ADMIN',
+        performedBy: req.user,
+        targetType: 'User',
+        targetId: targetUser._id,
+        details: `Super Admin approved citizen email update for ${targetUser.name}. Old email: ${oldEmail} -> New email: ${newEmail}. Notes: ${adminNotes}`,
+        ipAddress: req.ip
+      });
+
+      // Send dual notice to citizen
+      sendCitizenEmailChangeDualNotice({
+        name: targetUser.name,
+        oldEmail,
+        newEmail,
+        adminApproved: true
+      }).catch(err => console.error('[Citizen Dual Email Notice Error]', err));
+
+      return res.status(200).json({
+        success: true,
+        message: `Citizen email changed to ${newEmail}. Dual confirmation emails dispatched to ${oldEmail} and ${newEmail}.`,
+        data: request
+      });
+    }
+
+    // Officer email change:
     await AuditLog.logAction({
       action: 'OFFICER_EMAIL_UPDATED_BY_ADMIN',
       performedBy: req.user,
       targetType: 'User',
-      targetId: officerUser._id,
-      details: `Super Admin approved email update for ${officerUser.name} (${officerUser.employeeId}). Old email: ${oldEmail} -> New email: ${newEmail}. Notes: ${adminNotes}`,
+      targetId: targetUser._id,
+      details: `Super Admin approved email update for ${targetUser.name} (${targetUser.employeeId || request.employeeId}). Old email: ${oldEmail} -> New email: ${newEmail}. Notes: ${adminNotes}`,
       ipAddress: req.ip
     });
 
-    // Send dual confirmation emails via Gmail SMTP (Old and New addresses)
     const clientBaseUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     
     // Dispatch in background
     Promise.all([
       sendEmailChangeOldAddressNotice({
-        officerName: officerUser.name,
-        employeeId: officerUser.employeeId || request.employeeId,
-        departmentName: officerUser.department?.name || request.department?.name || 'Department',
+        officerName: targetUser.name,
+        employeeId: targetUser.employeeId || request.employeeId,
+        departmentName: targetUser.department?.name || request.department?.name || 'Department',
         oldEmail,
         newEmail,
         adminNotes
       }),
       sendEmailChangeNewAddressNotice({
-        officerName: officerUser.name,
-        employeeId: officerUser.employeeId || request.employeeId,
-        departmentName: officerUser.department?.name || request.department?.name || 'Department',
+        officerName: targetUser.name,
+        employeeId: targetUser.employeeId || request.employeeId,
+        departmentName: targetUser.department?.name || request.department?.name || 'Department',
         oldEmail,
         newEmail,
         adminNotes,

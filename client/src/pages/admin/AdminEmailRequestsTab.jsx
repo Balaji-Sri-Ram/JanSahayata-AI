@@ -241,7 +241,7 @@ export default function AdminEmailRequestsTab({ onActionComplete }) {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search officer or email..."
+              placeholder="Search citizen, officer or email..."
               className="gov-input pl-8 py-1.5 text-xs w-full"
             />
           </div>
@@ -302,27 +302,56 @@ export default function AdminEmailRequestsTab({ onActionComplete }) {
                 {/* Header row */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#0b2545] flex items-center justify-center font-bold text-xs border border-blue-100">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs border ${
+                      req.role === 'CITIZEN' 
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                        : 'bg-blue-50 text-[#0b2545] border-blue-100'
+                    }`}>
                       <User className="w-4 h-4" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-slate-900">{req.officerName}</h4>
-                        <span className="font-mono text-[11px] font-bold text-[#0b2545] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                          {req.employeeId}
-                        </span>
+                        <h4 className="text-sm font-bold text-slate-900">
+                          {req.role === 'CITIZEN' ? (req.citizenName || req.user?.name || 'Citizen User') : req.officerName}
+                        </h4>
+                        {req.role === 'CITIZEN' ? (
+                          <span className="font-mono text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            Citizen Account
+                          </span>
+                        ) : (
+                          <span className="font-mono text-[11px] font-bold text-[#0b2545] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                            {req.employeeId}
+                          </span>
+                        )}
                       </div>
                       <p className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
-                        <span>{req.designation || 'Grievance Officer'}</span>
-                        <span>•</span>
-                        <span className="text-slate-700 font-medium">{req.department?.name || 'Department'}</span>
-                        {req.contactPhone && (
+                        {req.role === 'CITIZEN' ? (
                           <>
+                            <span className="text-slate-700 font-medium">Public Citizen Portal</span>
+                            {req.contactPhone && (
+                              <>
+                                <span>•</span>
+                                <span className="flex items-center gap-1 text-slate-600">
+                                  <Phone className="w-3 h-3 text-slate-400" />
+                                  {req.contactPhone}
+                                </span>
+                              </>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <span>{req.designation || 'Grievance Officer'}</span>
                             <span>•</span>
-                            <span className="flex items-center gap-1 text-slate-600">
-                              <Phone className="w-3 h-3 text-slate-400" />
-                              {req.contactPhone}
-                            </span>
+                            <span className="text-slate-700 font-medium">{req.department?.name || 'Department'}</span>
+                            {req.contactPhone && (
+                              <>
+                                <span>•</span>
+                                <span className="flex items-center gap-1 text-slate-600">
+                                  <Phone className="w-3 h-3 text-slate-400" />
+                                  {req.contactPhone}
+                                </span>
+                              </>
+                            )}
                           </>
                         )}
                       </p>
@@ -379,10 +408,10 @@ export default function AdminEmailRequestsTab({ onActionComplete }) {
                   </div>
                 </div>
 
-                {/* Officer Reason / Justification */}
+                {/* Reason / Justification */}
                 <div className="p-3 bg-white rounded-lg border border-slate-200 text-xs mb-4">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                    Officer Justification Reason:
+                    {req.role === 'CITIZEN' ? 'Citizen Statement / Reason for Transfer:' : 'Officer Justification Reason:'}
                   </div>
                   <p className="text-slate-800 italic">"{req.reason}"</p>
                 </div>
@@ -469,10 +498,22 @@ export default function AdminEmailRequestsTab({ onActionComplete }) {
             <div className="p-5 space-y-4 text-xs">
               <div>
                 <p className="text-slate-600">
-                  Officer: <strong className="text-slate-900">{selectedRequest.officerName}</strong> ({selectedRequest.employeeId})
+                  {selectedRequest.role === 'CITIZEN' ? (
+                    <>
+                      Citizen: <strong className="text-slate-900">{selectedRequest.citizenName || selectedRequest.user?.name || 'Citizen User'}</strong>
+                    </>
+                  ) : (
+                    <>
+                      Officer: <strong className="text-slate-900">{selectedRequest.officerName}</strong> ({selectedRequest.employeeId})
+                    </>
+                  )}
                 </p>
                 <p className="text-slate-600 mt-0.5">
-                  Department: <strong className="text-slate-900">{selectedRequest.department?.name || 'Department'}</strong>
+                  {selectedRequest.role === 'CITIZEN' ? (
+                    <>Account Type: <strong className="text-emerald-800">Registered Public Citizen</strong></>
+                  ) : (
+                    <>Department: <strong className="text-slate-900">{selectedRequest.department?.name || 'Department'}</strong></>
+                  )}
                 </p>
               </div>
 
@@ -483,8 +524,11 @@ export default function AdminEmailRequestsTab({ onActionComplete }) {
                   </div>
                   <ul className="list-disc list-inside space-y-1 text-emerald-900 text-[11px]">
                     <li>Login email will change from <code>{selectedRequest.currentEmail}</code> to <code>{selectedRequest.requestedEmail}</code>.</li>
-                    <li>Official Confirmation Notice sent to <strong>former email</strong> (<code>{selectedRequest.currentEmail}</code>).</li>
-                    <li>Official Activation Notice sent to <strong>new email</strong> (<code>{selectedRequest.requestedEmail}</code>).</li>
+                    {selectedRequest.role === 'CITIZEN' && (
+                      <li>All past citizen complaints in system database will be reassigned to the new email.</li>
+                    )}
+                    <li>Official Confirmation Notice dispatched to <strong>former email</strong> (<code>{selectedRequest.currentEmail}</code>).</li>
+                    <li>Official Activation Notice dispatched to <strong>new email</strong> (<code>{selectedRequest.requestedEmail}</code>).</li>
                   </ul>
                 </div>
               ) : (

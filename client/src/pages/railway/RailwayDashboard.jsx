@@ -24,17 +24,42 @@ import UrgencyBadge from '../../components/UrgencyBadge';
 export default function RailwayDashboard() {
   const [statsData, setStatsData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshCountdown, setRefreshCountdown] = useState(0);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchStats();
   }, []);
 
-  const fetchStats = async () => {
+  // Real-time live polling (every 8s)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      railwayApi.getDashboardStats().then(res => {
+        if (res.data?.success) setStatsData(res.data.data);
+      }).catch(() => {});
+    }, 8000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const fetchStats = async (isManual = false) => {
     try {
-      setLoading(true);
+      if (isManual) {
+        setIsRefreshing(true);
+        setRefreshCountdown(3);
+        const timer = setInterval(() => {
+          setRefreshCountdown(prev => (prev > 1 ? prev - 1 : 1));
+        }, 1000);
+        setTimeout(() => clearInterval(timer), 3200);
+      } else {
+        setLoading(true);
+      }
       setError(null);
-      const res = await railwayApi.getDashboardStats();
+      const [res] = await Promise.all([
+        railwayApi.getDashboardStats(),
+        isManual ? new Promise(r => setTimeout(r, 3000)) : Promise.resolve()
+      ]);
       if (res.data?.success) {
         setStatsData(res.data.data);
       }
@@ -43,6 +68,8 @@ export default function RailwayDashboard() {
       setError('Could not connect to Railway backend API.');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
+      setRefreshCountdown(0);
     }
   };
 
@@ -77,18 +104,18 @@ export default function RailwayDashboard() {
             Operational Grievance Dashboard
           </h1>
           <p className="text-xs text-slate-400 mt-1 max-w-xl">
-            Logged in as <strong className="text-white">Railway Officer (Station Superintendent)</strong>. Real-time complaint queues and automated AI triaging feeds.
+            Logged in as <strong className="text-white">Railway Officer (Station Superintendent)</strong>. Official complaint queues and department grievance feeds.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <button
-            onClick={fetchStats}
-            disabled={loading}
+            onClick={() => fetchStats(true)}
+            disabled={loading || isRefreshing}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/20 transition-colors shadow-sm"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Sync Live Data</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing || loading ? 'animate-spin text-amber-300' : ''}`} />
+            <span>{isRefreshing ? `Syncing (${refreshCountdown || 3}s)...` : 'Sync Live Data'}</span>
           </button>
 
           <Link

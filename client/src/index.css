@@ -11,10 +11,20 @@
     background-color: #0b2545; /* Dark navy base prevents any white flash/gap above header during intense or elastic scrolling */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: clip;
+    max-width: 100vw;
   }
 
   body {
     @apply bg-slate-100 text-slate-900 min-h-screen selection:bg-blue-100 selection:text-blue-900 text-sm m-0 p-0;
+    overflow-x: clip;
+    max-width: 100vw;
+  }
+
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -157,4 +167,29 @@ font.skiptranslate,
 span.skiptranslate {
   display: inline !important;
 }
+
+/* Clean Government Emblem Rendering (No heavy outer box/frame) */
+.emblem-image-enhanced {
+  filter: brightness(1.18) contrast(1.15) saturate(1.1) drop-shadow(0 2px 4px rgba(0,0,0,0.25));
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.emblem-image-enhanced:hover {
+  filter: brightness(1.25) contrast(1.2) saturate(1.15) drop-shadow(0 4px 10px rgba(11,37,69,0.35));
+  transform: scale(1.05);
+}
+
+/* Modern Toast Notification Animation */
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+
 
