@@ -1,6 +1,8 @@
-# JanSahayata AI — Citizen–Government Grievance Mediation Platform (MVP)
+# JanSahayata AI — Citizen–Government Grievance Mediation Platform
 
 An AI-powered, multi-department Civic & Railway Grievance Redressal Platform built in alignment with Government of India digital governance standards (CPGRAMS / JanSahayata). Connecting citizens directly with government departments (Railways, Municipal Corporation, Water Supply & Sewerage, PWD, Electricity Board) through multi-modal grievance reporting, automated LLM categorization, YOLOv8 computer vision detection, and transparent officer resolution workflows.
+
+Built from scratch using **Django (Python)**, **MongoDB**, and **React 18**.
 
 ---
 
@@ -30,19 +32,19 @@ An AI-powered, multi-department Civic & Railway Grievance Redressal Platform bui
             └──────────────────────────┼──────────────────────────┘
                                        │ REST APIs & Multipart Uploads (JWT Protected)
                                        ▼
-                           ┌────────────────────────┐
-                           │ Node.js + Express API  │
-                           │      (Port 5001)       │
-                           └───────────┬────────────┘
+                           ┌─────────────────────────┐
+                           │   Django REST Backend   │
+                           │       (Port 8000)       │
+                           └───────────┬─────────────┘
                                        │
          ┌─────────────────────────────┼─────────────────────────────┐
          ▼                             ▼                             ▼
 ┌─────────────────┐           ┌──────────────────┐          ┌──────────────────┐
 │ MongoDB Database│           │ AI Orchestration │          │ Communications   │
-│ • Users & Roles │           │ • Gemini 1.5 API │          │ • Nodemailer     │
-│ • Complaints    │           │ • OpenRouter API │          │   (Gmail SMTP)   │
+│ • Users & Roles │           │ • Gemini 1.5 API │          │ • Python SMTP    │
+│ • Complaints    │           │ • OpenRouter API │          │   (Gmail SSL)    │
 │ • Audit Logs    │           │ • YOLOv8 Vision  │          │ • OTP Dispatch   │
-│ • Email Requests│           │ • Fallback Engine│          │   (Email/SMS/WA) │
+│ • Email Requests│           │ • Rule Fallback  │          │   (Email/SMS/WA) │
 └─────────────────┘           └──────────────────┘          └──────────────────┘
 ```
 
@@ -58,7 +60,7 @@ An AI-powered, multi-department Civic & Railway Grievance Redressal Platform bui
   - **One-Click Geolocation**: HTML5 GPS capture for auto-tagging incident coordinates and nearest landmarks.
   - **AI Formulation Card**: Gemini-powered automatic formalization converting informal complaints into structured official grievance statements.
   - **Category & Urgency Classification**: Auto-selection with manual override across 10+ civic & railway categories and urgency tiers (Low, Medium, High, Critical).
-  - **Unique Grievance Tracking**: Formats official reference IDs (e.g., `RLY-2026-000001`, `MUN-2026-000002`).
+  - **Unique Grievance Tracking**: Formats official reference IDs (e.g., `RLY-2026-000001`, `MUN-2026-000002`, `JNS-2026-000003`).
 - **Grievance Tracking & Citizen Verification (`/my-complaints`, `/complaint/:id`)**:
   - Filter by Active, In Progress, Resolved, Disputed, and Escalated statuses.
   - Interactive multi-stage timeline showing officer assignment, inspection notes, and timestamped actions.
@@ -96,165 +98,166 @@ An AI-powered, multi-department Civic & Railway Grievance Redressal Platform bui
 
 ## Technology Stack
 
-### Frontend (`client/`)
+### Backend (`Django`)
+- **Framework**: Django 5.x + Django REST Framework
+- **Language**: Python 3.11+
+- **Database**: MongoDB (via `pymongo` 4.x)
+- **Security & Auth**: PyJWT, Bcrypt
+- **CORS Handling**: `django-cors-headers`
+- **Email Dispatch**: Standard library `smtplib` with SSL (Gmail SMTP & Development Simulator)
+- **SMS & WhatsApp**: Twilio REST API integration & Development Simulator
+
+### Frontend (`frontend/`)
 - **Framework**: React 18.3 (Single Page Application)
 - **Tooling & Bundler**: Vite 6.0
 - **Styling**: Tailwind CSS v3, PostCSS, Autoprefixer
 - **Routing**: React Router v6
 - **Icons**: Lucide React
-- **API Client**: Axios
+- **API Client**: Axios (configured with dynamic `/api` routing)
 - **State & Context**: AuthContext, LanguageContext (22 languages), ToastContext
-
-### Backend (`server/`)
-- **Runtime**: Node.js (ES Modules)
-- **Server Framework**: Express.js 4.21
-- **Database & ODM**: MongoDB with Mongoose 8.9
-- **Authentication**: JSON Web Tokens (`jsonwebtoken`), `bcryptjs`
-- **File Uploads**: Multer (multi-part support for images, videos, audio)
-- **Email Notifications**: Nodemailer (Gmail SMTP dispatch for official government alerts & OTPs)
-- **Logging & Utilities**: Morgan, UUID, Dotenv, CORS
 
 ### AI & Machine Learning Services
 - **Generative AI / LLM**: Google Gemini API (`gemini-1.5-flash`) with OpenRouter fallback and a heuristic rule-based engine.
-- **Computer Vision**: YOLOv8 dataset integration (`Datasets/Pothole Dataset`) with bounding box preview.
-- **Speech-to-Text**: Voice recording interface ready for Whisper transcription API bridge.
+- **Computer Vision**: Simulated YOLOv8 detection bounding box overlays for potholes, garbage, pipe bursts, and live wires.
 
 ---
 
 ## Directory Structure
 
 ```text
-CAPSTONE/
-├── client/                               # React 18 + Vite Frontend
+JanSahayata-AI/
+├── manage.py                             # Django CLI management script
+├── requirements.txt                      # Python dependencies
+├── seed.py                               # Database seeder for demo accounts & grievances
+├── .env.example                          # Environment variables template
+├── .env                                  # Active environment configuration
+│
+├── jansahayata/                          # Django Project Core Configuration
+│   ├── __init__.py
+│   ├── settings.py                       # Master Django settings, CORS, and Apps
+│   ├── urls.py                           # Master URL routing & SPA fallback
+│   ├── wsgi.py                           # WSGI entry point
+│   ├── asgi.py                           # ASGI entry point
+│   ├── db.py                             # MongoDB (PyMongo) connection & JWT/Bcrypt helpers
+│   └── auth_middleware.py                # JWT & RBAC view decorators
+│
+├── apps/                                 # Django Modular Applications
+│   ├── authentication/                   # User & Officer Auth, OTPs, Dual-OTP Email Change
+│   │   ├── views.py
+│   │   └── urls.py
+│   ├── complaints/                       # Citizen Grievances, Uploads, Disputes, Timelines
+│   │   ├── views.py
+│   │   └── urls.py
+│   ├── staff/                            # Officer Dashboard, Department Actions & Resolution
+│   │   ├── views.py
+│   │   └── urls.py
+│   ├── admin_portal/                     # Super Admin Analytics, Officer CRUD, Audit Logs
+│   │   ├── views.py
+│   │   └── urls.py
+│   ├── railway/                          # Railway-specific backward compatibility routes
+│   │   ├── views.py
+│   │   └── urls.py
+│   └── ai_service/                       # AI Problem Formulation & Department Directory
+│       ├── views.py
+│       └── urls.py
+│
+├── services/                             # Core Business & Integration Services
+│   ├── departments.py                    # 8 Indian Public Service Departments Configuration
+│   ├── email_service.py                  # Official Government HTML Email Dispatcher
+│   ├── messaging_service.py              # Twilio SMS / WhatsApp Dispatcher & Simulator
+│   └── ai_engine.py                      # Gemini 1.5 Flash, OpenRouter & Rule Engine
+│
+├── frontend/                             # React 18 + Vite Frontend Application
 │   ├── src/
-│   │   ├── components/                   # Shared UI Components
-│   │   │   ├── AudioRecorder.jsx         # Browser audio recorder with waveform
-│   │   │   ├── ChangePasswordModal.jsx   # Password change modal
-│   │   │   ├── CitizenEmailChangeModal.jsx # Citizen email update with OTP
-│   │   │   ├── EmblemLogo.jsx            # State Emblem of India
-│   │   │   ├── FirstTimePasswordResetModal.jsx # Officer first-time login modal
-│   │   │   ├── Footer.jsx                # Government portal footer
-│   │   │   ├── Header.jsx                # Main navigation & language selector
-│   │   │   ├── ImageUploadPreview.jsx    # Photo/video drag-and-drop preview
-│   │   │   ├── IndianFlag.jsx            # Indian tricolor SVG component
-│   │   │   ├── LanguageDropdown.jsx      # 22-language switcher
-│   │   │   ├── OfficerEmailChangeModal.jsx # Officer email request modal
-│   │   │   ├── ProtectedRoute.jsx        # Role-based route guard
-│   │   │   ├── StatusBadge.jsx           # Grievance status badge
-│   │   │   ├── Timeline.jsx              # Status progression timeline
-│   │   │   └── UrgencyBadge.jsx          # Urgency indicator chip
-│   │   ├── context/                      # React Context Providers
-│   │   │   ├── AuthContext.jsx           # User session & role management
-│   │   │   ├── LanguageContext.jsx       # 22 Indian languages dictionary
-│   │   │   └── ToastContext.jsx          # Global toast notification provider
-│   │   ├── pages/
-│   │   │   ├── admin/                    # Admin Dashboard & Email Requests
-│   │   │   ├── auth/                     # Citizen & Staff Login / Register
-│   │   │   ├── citizen/                  # Home, Report Problem, My Complaints
-│   │   │   ├── railway/                  # Railway Specific Dashboard
-│   │   │   └── staff/                    # Department Staff Inbox & Detail
-│   │   ├── services/
-│   │   │   └── api.js                    # Axios API configuration & intercepts
-│   │   ├── App.jsx                       # Master route tree
-│   │   ├── index.css                     # Global styles & Tailwind directives
-│   │   └── main.jsx                      # React application entry point
+│   │   ├── components/                   # UI Components (AudioRecorder, Timeline, etc.)
+│   │   ├── context/                      # AuthContext, LanguageContext (22 languages)
+│   │   ├── pages/                        # Citizen, Staff, Admin, Railway Dashboards
+│   │   └── services/                     # Axios API client
+│   ├── package.json
 │   ├── tailwind.config.js
 │   └── vite.config.js
 │
-├── server/                               # Node.js + Express Backend
-│   ├── config/
-│   │   ├── db.js                         # MongoDB connection handler
-│   │   └── departments.js                # Department registry configuration
-│   ├── controllers/
-│   │   ├── adminController.js            # Admin metrics & officer approvals
-│   │   ├── authController.js             # RBAC auth, login, OTP dispatch
-│   │   ├── complaintController.js        # Complaint CRUD & citizen workflows
-│   │   └── staffController.js            # Department officer complaint actions
-│   ├── middleware/
-│   │   └── upload.js                     # Multer storage configuration
-│   ├── models/
-│   │   ├── AuditLog.js                   # System audit logs schema
-│   │   ├── Complaint.js                  # Grievance complaint schema
-│   │   ├── EmailChangeRequest.js         # Officer email approval requests
-│   │   └── User.js                       # User & staff authentication schema
-│   ├── routes/
-│   │   ├── adminRoutes.js                # Super Admin API endpoints
-│   │   ├── aiRoutes.js                   # AI analysis endpoints
-│   │   ├── authRoutes.js                 # Authentication & OTP routes
-│   │   ├── complaintRoutes.js            # Citizen complaint routes
-│   │   ├── railwayRoutes.js              # Railway specific endpoints
-│   │   └── staffRoutes.js                # Staff grievance processing routes
-│   ├── services/
-│   │   ├── ai/
-│   │   │   └── aiService.js              # Gemini/OpenRouter & YOLO vision bridge
-│   │   ├── emailService.js               # Nodemailer Gmail SMTP OTP service
-│   │   └── messagingService.js           # Multi-channel notification bridge
-│   ├── uploads/                          # Stored media (images, videos, audio)
-│   ├── .env.example                      # Template for backend environment variables
-│   ├── seed.js                           # Database seeder for demo accounts & data
-│   └── server.js                         # Express application entry point
-│
-├── Datasets/
-│   └── Pothole Dataset/                  # YOLO annotated computer vision dataset
+├── uploads/                              # Uploaded Grievance Media
+│   ├── images/                           # Photos of civic incidents & resolution proof
+│   ├── videos/                           # Video evidence
+│   └── audio/                            # Citizen voice recordings
 └── README.md
 ```
 
 ---
-## Quick Start & Verification
 
-Create a `.env` file in the `server/` directory:
+## Quick Start & Setup
 
-```env
-PORT=5001
-MONGODB_URI=mongodb://127.0.0.1:27017/grievance_platform
-CLIENT_URL=http://localhost:5173
-NODE_ENV=development
+### 1. Prerequisites
+- **Python 3.11+** installed
+- **MongoDB** running locally on port `27017` (e.g., `mongodb://127.0.0.1:27017`)
+- **Node.js 18+** (for frontend development if running Vite dev server)
 
-# LLM Configuration (Google Gemini / OpenRouter)
-GEMINI_API_KEY=your_gemini_api_key_here
-OPENROUTER_API_KEY=your_openrouter_api_key_here
-LLM_PROVIDER=auto
+### 2. Backend Setup (Django)
 
-# Security & Authentication
-JWT_SECRET=your_jwt_secret_key_here
-SUPER_ADMIN_EMAIL=admin@jansahayata.gov.in
-SUPER_ADMIN_PASSWORD=Admin@JanSahayata2026!
+1. **Install Python Dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-# Official Government Email & OTP Dispatch (Gmail SMTP)
-GMAIL_USER=your_email@gmail.com
-GMAIL_APP_PASSWORD=your_16_char_google_app_password
-```
+2. **Run Django Database Migrations** (for internal sessions & admin):
+   ```bash
+   python manage.py migrate
+   ```
+
+3. **Seed MongoDB with Official Government Accounts & Sample Complaints**:
+   ```bash
+   python seed.py
+   # or
+   python manage.py seed
+   ```
+
+4. **Start the Django Server**:
+   ```bash
+   python manage.py runserver
+   ```
+   The platform will be live at `http://127.0.0.1:8000/`.
+   Because Django serves the built React frontend directly, you can open `http://127.0.0.1:8000/` immediately in your browser to access the complete UI!
 
 ---
 
-## Getting Started
+### 3. Frontend Development (Optional for Hot Reload)
 
-### 1. Prerequisites
-- [Node.js](https://nodejs.org/) (v18.0 or higher)
-- [MongoDB](https://www.mongodb.com/) (running locally on port 27017 or MongoDB Atlas connection URI)
+If you wish to make changes to the React frontend with Vite Hot Module Replacement (HMR):
 
-### 2. Backend Setup
-```bash
-cd server
-npm install
+1. **Navigate to the frontend directory**:
+   ```bash
+   cd frontend
+   npm install
+   ```
 
-# Seed the database with demo users, officers, and complaints
-npm run seed
+2. **Start the Vite Dev Server**:
+   ```bash
+   npm run dev
+   ```
+   The Vite dev server will run at `http://localhost:5173/` and automatically proxies all `/api` and `/uploads` requests to the Django backend at `http://127.0.0.1:8000/`.
 
-# Start development server
-npm run dev
-# Backend runs on http://localhost:5001
-```
+3. **Rebuild the Frontend for Django Production**:
+   ```bash
+   npm run build
+   ```
 
+---
 
+## Seeded Demo Credentials
 
-### 3. Start Frontend Client
-```bash
-cd client
-npm install
+| Role | Name | Email / ID | Password | Access Level |
+| :--- | :--- | :--- | :--- | :--- |
+| **Super Admin** | Phaniswar | `admin@jansahayata.gov.in` | `Admin@JanSahayata2026!` | Full Platform, Officers, Audit Logs |
+| **Railway Officer** | K. Kiran Sai Karthik | `officer.railway@jansahayata.gov.in` | `Officer@2026!` | Railway Grievances & Resolution Hub |
+| **Water Supply Officer**| P. Balaji Sri Ram | `officer.water@jansahayata.gov.in` | `Officer@2026!` | Water & Sewerage Board Grievances |
+| **Municipal Officer** | P. Balu Lakshman Pavan | `officer.muni@jansahayata.gov.in` | `Officer@2026!` | Municipal Sanitation & Civic Encroachments |
+| **PWD Roads Officer** | K. Pavan Kalyan | `officer.roads@jansahayata.gov.in` | `Officer@2026!` | Potholes & Road Infrastructure |
+| **Electricity Officer**| Allada Pavan | `officer.electricity@jansahayata.gov.in` | `Officer@2026!` | Power Distribution & Streetlights |
+| **Demo Citizen** | Ravi Teja Sharma | `citizen@gmail.com` | `Citizen@2026!` | Report Grievance, Track, Dispute & Verify |
 
-# Start Vite development server
-npm run dev
-# Frontend runs on http://localhost:5173
-```
+---
 
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
